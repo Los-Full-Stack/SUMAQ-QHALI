@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#0D9488" />
+    </linearGradient>
+  </defs>
+  <!-- Background Circle -->
+  <circle cx="50" cy="50" r="48" fill="url(#grad)" />
+  <!-- Mountain contours representing Andes -->
+  <path d="M25 65 L40 45 L52 57 L70 35 L82 50 L85 65 Z" fill="#ffffff" opacity="0.3" />
+  <!-- Heart shape representing Health -->
+  <path d="M50 72 C48 72 25 56 25 42 C25 32 33 25 42 25 C46 25 49 27 50 29 C51 27 54 25 58 25 C67 25 75 32 75 42 C75 56 52 72 50 72 Z" fill="#ffffff" />
+  <!-- Inside heart detailing (mountain shape) -->
+  <path d="M38 48 L46 38 L51 44 L60 32 L68 44 L70 48 Z" fill="url(#grad)" />
+</svg>

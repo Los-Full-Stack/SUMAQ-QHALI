@@ -1,0 +1,72 @@
+========================================================================
+             SUMAQ QHALI - SISTEMA CLÍNICO RURAL ANDINO
+                     CREDENCIALES DE ACCESO (DEMO)
+========================================================================
+
+Este archivo contiene los accesos rápidos para las pruebas de los portales
+de pacientes, personal médico y administración.
+
+------------------------------------------------------------------------
+1. ACCESO DEL PERSONAL (Médicos / Administradores)
+------------------------------------------------------------------------
+* Para ingresar, seleccione la pestaña "Personal" en el modal de ingreso.
+* Contraseña universal de demostración para todo el personal: admin
+
+- Perfil Administrador (Acceso global, gestión de médicos y turnos)
+  * Usuario: admin
+  * Contraseña: admin
+
+- Dr. Quispe (Médico - Consulta General)
+  * Usuario: Quispe
+  * Contraseña: admin
+
+- Dra. Rojas (Médica - Pediatría)
+  * Usuario: Rojas
+  * Contraseña: admin
+
+- Dr. Condori (Médico - Ginecología)
+  * Usuario: Condori
+  * Contraseña: admin
+
+- Enfermero Huamán (Personal - Control de Presión)
+  * Usuario: Huaman
+  * Contraseña: admin
+
+
+------------------------------------------------------------------------
+2. ACCESO DE PACIENTES (Portal de Pacientes)
+------------------------------------------------------------------------
+* Para ingresar, seleccione la pestaña "Paciente" en el modal de ingreso.
+* La contraseña corresponde al número de DNI del paciente.
+
+- Juan Mamani (64 años - Urubamba)
+  * Usuario (DNI): 45678912
+  * Contraseña: 45678912
+  * Condición: Hipertensión Arterial Primaria
+  * Alergias: Penicilina (Severidad: alta)
+
+- María Condori (58 años - Pisac)
+  * Usuario (DNI): 10293455
+  * Contraseña: 10293455
+  * Condición: Osteoartritis de rodilla bilateral
+  * Alergias: Ninguna registrada
+
+- Lucía Huamán (8 años - Calca)
+  * Usuario (DNI): 76543210
+  * Contraseña: 76543210
+  * Condición: Asma bronquial intermitente
+  * Alergias: Ácaros del polvo (Severidad: media)
+
+- Néstor Yupanqui (45 años - Paucartambo)
+  * Usuario (DNI): 23849502
+  * Contraseña: 23849502
+  * Condición: Diabetes Mellitus Tipo 2
+  * Cita Programada: Control de Presión con Enf. Huamán (Lunes 09:00 AM)
+
+- Rosa Choque (29 años - Andahuaylas)
+  * Usuario (DNI): 38402938
+  * Contraseña: 38402938
+  * Condición: Gestante de 24 semanas
+  * Cita Programada: Ginecología con Dr. Condori (Martes 03:00 PM)
+
+========================================================================

@@ -1,0 +1,6 @@
+{
+  "name": "Sumaq Qhali",
+  "description": "Ethical Precision in Andean Health: Bilingual medical SaaS platform with offline capabilities, clinical records management, and dual-language Quechua/Spanish interface.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
