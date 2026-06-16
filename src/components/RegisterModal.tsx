@@ -16,16 +16,20 @@ export default function RegisterModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.dni || !form.password) {
-      alert("Por favor ingrese Nombre, DNI y Contraseña.");
+    if (!form.name || !form.dni) {
+      alert("Por favor ingrese Nombre y DNI.");
       return;
     }
+    const payload = {
+      ...form,
+      password: form.password || form.dni
+    };
     try {
-      await api.registerPatient(form);
+      await api.registerPatient(payload);
       onSuccess();
-    } catch (e) {
-      console.error(e);
-      alert("Error registrando paciente.");
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Error registrando paciente.");
     }
   };
 
@@ -49,8 +53,8 @@ export default function RegisterModal({
               <input required maxLength={10} value={form.dni} onChange={e => setForm({...form, dni: e.target.value})} className="w-full border rounded-lg p-2 text-xs" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Contraseña *</label>
-              <input required type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} className="w-full border rounded-lg p-2 text-xs" />
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Contraseña (Opcional)</label>
+              <input type="password" placeholder="Por defecto es el DNI" value={form.password} onChange={e => setForm({...form, password: e.target.value})} className="w-full border rounded-lg p-2 text-xs font-sans" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">Celular</label>

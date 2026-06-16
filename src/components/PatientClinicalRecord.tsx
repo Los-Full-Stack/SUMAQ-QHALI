@@ -354,8 +354,8 @@ Ethical Precision in Andean Health
         
         {/* Save success notification flag */}
         {saveSuccess && (
-          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs md:text-sm p-4 rounded-xl flex items-center gap-3 shadow-sm font-sans animate-fade-in">
-            <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold">✓</div>
+          <div className="bg-blue-50 border border-blue-200 text-blue-800 text-xs md:text-sm p-4 rounded-xl flex items-center gap-3 shadow-sm font-sans animate-fade-in">
+            <div className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold">✓</div>
             <div>
               <p className="font-bold">¡Consulta Guardada Exitosamente!</p>
               <p className="opacity-90">El registro médico y la receta se han guardado con persistencia relacional en la base de datos local.</p>
@@ -402,7 +402,7 @@ Ethical Precision in Andean Health
           <div className="flex-1 w-full text-center md:text-left">
             <div className="flex flex-col sm:flex-row items-center gap-3 justify-center md:justify-start mb-1">
               <h2 className="text-xl md:text-2xl font-bold text-primary font-headline tracking-tight">{patient.name}</h2>
-              <span className="bg-teal-100 text-[#00637f] text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+              <span className="bg-cyan-100 text-[#00637f] text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                 {patient.status === "Active" ? "Paciente Activo" : "Inactivo"}
               </span>
             </div>
@@ -567,7 +567,7 @@ Ethical Precision in Andean Health
                     </h3>
                     <button 
                       onClick={addMedicationLine}
-                      className="text-secondary hover:text-[#004d63] p-1.5 hover:bg-teal-50 rounded-lg transition-all flex items-center gap-1 text-xs font-bold shrink-0 cursor-pointer"
+                      className="text-secondary hover:text-[#004d63] p-1.5 hover:bg-cyan-50 rounded-lg transition-all flex items-center gap-1 text-xs font-bold shrink-0 cursor-pointer"
                     >
                       <Plus className="w-4 h-4" /> Agregar Línea
                     </button>
@@ -602,7 +602,7 @@ Ethical Precision in Andean Health
                                   <li 
                                     key={iSug}
                                     onClick={() => updateMedicationLine(idx, "name", sug)}
-                                    className="px-3 py-2 text-xs md:text-sm hover:bg-teal-50 hover:text-teal-900 cursor-pointer border-b border-gray-50 last:border-0 font-medium text-gray-700 transition-colors"
+                                    className="px-3 py-2 text-xs md:text-sm hover:bg-cyan-50 hover:text-cyan-900 cursor-pointer border-b border-gray-50 last:border-0 font-medium text-gray-700 transition-colors"
                                   >
                                     {sug}
                                   </li>
@@ -683,7 +683,7 @@ Ethical Precision in Andean Health
                               <p className="text-[10px] font-bold text-secondary uppercase tracking-wider mb-1">Prescripciones:</p>
                               <div className="flex flex-wrap gap-2">
                                 {c.prescriptions.map((m, idx) => (
-                                  <span key={idx} className="bg-teal-50 border border-teal-100 text-teal-800 text-[10px] font-semibold px-2 py-0.5 rounded">
+                                  <span key={idx} className="bg-cyan-50 border border-cyan-100 text-cyan-800 text-[10px] font-semibold px-2 py-0.5 rounded">
                                     💊 {m.name} [Frecuencia: {m.dosage}] • {m.duration}
                                   </span>
                                 ))}
@@ -778,7 +778,7 @@ Ethical Precision in Andean Health
                 />
                 <button 
                   type="submit"
-                  className="bg-teal-50 hover:bg-teal-100 text-secondary p-2 rounded-lg transition-colors cursor-pointer"
+                  className="bg-cyan-50 hover:bg-cyan-100 text-secondary p-2 rounded-lg transition-colors cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                 </button>
@@ -794,7 +794,7 @@ Ethical Precision in Andean Health
                 </h4>
                 
                 {/* Simulated native upload trigger */}
-                <label className="text-secondary hover:text-[#004d63] hover:bg-teal-50 p-1 rounded-lg transition-colors cursor-pointer shrink-0">
+                <label className="text-secondary hover:text-[#004d63] hover:bg-cyan-50 p-1 rounded-lg transition-colors cursor-pointer shrink-0">
                   <Upload className="w-4 h-4" />
                   <input type="file" onChange={handleFileUpload} className="hidden" accept="image/*,application/pdf" />
                 </label>
@@ -808,10 +808,10 @@ Ethical Precision in Andean Health
                   patient.files.map(f => (
                     <div 
                       key={f.id}
-                      className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 border border-teal-50 hover:border-gray-200 transition-colors cursor-pointer"
+                      className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 border border-cyan-50 hover:border-gray-200 transition-colors cursor-pointer"
                     >
                       <div className="p-2 bg-slate-100 rounded-lg text-primary">
-                        {f.type === "image" ? <FileImage className="w-4 h-4 text-emerald-600" /> : <FileText className="w-4 h-4 text-rose-500" />}
+                        {f.type === "image" ? <FileImage className="w-4 h-4 text-blue-600" /> : <FileText className="w-4 h-4 text-rose-500" />}
                       </div>
                       <div className="flex-1 min-w-0 font-sans">
                         <p className="text-xs font-bold text-gray-900 truncate">{f.name}</p>

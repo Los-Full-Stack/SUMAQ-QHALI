@@ -1,0 +1,33 @@
+{
+  "instructions": "CONFIGURATION: This project uses opencode/ directory for agent/skill definitions. Always check AGENTS.md first for project-level context.",
+  "agents": {
+    "db-architect": {
+      "description": "PostgreSQL/Supabase schema migration, query optimization, pool management, and data integrity checks.",
+      "path": "opencode/agents/db-architect.md"
+    },
+    "medical-translator": {
+      "description": "Intercultural clinical translation (Quechua/Spanish) using Gemini API, EHR auditing, and bilingual prescription validation.",
+      "path": "opencode/agents/medical-translator.md"
+    }
+  },
+  "agentGroups": {
+    "sumaq-qhali": {
+      "agents": ["db-architect", "medical-translator"],
+      "description": "Sumaq Qhali clinical system team"
+    }
+  },
+  "hooks": {
+    "preAction": "opencode/hook/index.js",
+    "description": "Validates env config, DB pool hygiene, and TypeScript before allowing actions."
+  },
+  "skills": {
+    "bilingual-prescriptions": {
+      "path": "opencode/skills/bilingual-prescriptions",
+      "description": "Bilingual medical prescription generation and validation"
+    },
+    "db-validator": {
+      "path": "opencode/skills/db-validator",
+      "description": "Database schema, connection validation, and diagnostic queries"
+    }
+  }
+}

@@ -45,6 +45,7 @@ export default function DoctorDashboard({
   const [isSavingRecord, setIsSavingRecord] = useState(false);
 
   const [queuePatients, setQueuePatients] = useState<any[]>([]);
+  const [queueError, setQueueError] = useState<string | null>(null);
   const [activeSideTab, setActiveSideTab] = useState<"telemed" | "patients">("telemed");
   
   // Doctor monthly agenda states
@@ -55,18 +56,26 @@ export default function DoctorDashboard({
   useEffect(() => {
     let interval: any;
     if (isTelemedicineActive) {
-      // Poll queue every 3 seconds
+      // Poll queue every 3 seconds and sync all dashboard data (like appointments)
       interval = setInterval(async () => {
         try {
           const res = await api.getQueue();
           setQueuePatients(res);
-        } catch (e) { console.error(e); }
+          setQueueError(null);
+          if (onRefresh) {
+            onRefresh();
+          }
+        } catch (e: any) {
+          console.error(e);
+          setQueueError(e.message || "Error cargando la cola");
+        }
       }, 3000);
     } else {
       setQueuePatients([]);
+      setQueueError(null);
     }
     return () => clearInterval(interval);
-  }, [isTelemedicineActive]);
+  }, [isTelemedicineActive, onRefresh]);
 
   const handleStartCall = async (pId: string) => {
     try {
@@ -214,12 +223,12 @@ export default function DoctorDashboard({
   const monthsQU = ["Qulla puquy", "Hatun puquy", "Pauqar waray", "Ayriwa", "Aymuray", "Inti raymi", "Anta situwa", "Qhapaq situwa", "Uma raymi", "Kantaray", "Ayamarq'a", "Qhapaq raymi"];
 
   return (
-    <div className="flex-1 overflow-y-auto bg-slate-50 font-sans w-full relative min-h-screen">
+    <div className="flex-1 overflow-y-auto beautiful-scrollbar bg-slate-50 font-sans w-full relative min-h-screen">
       {/* Premium Background Banner */}
       {!activeCallRoom && (
-        <div className="absolute top-0 left-0 right-0 h-[220px] bg-gradient-to-br from-[#064E3B] via-[#0F766E] to-[#0F172A] z-0 overflow-hidden rounded-b-[2.5rem] shadow-lg transition-all duration-500">
+        <div className="absolute top-0 left-0 right-0 h-[220px] bg-gradient-to-br from-[#00355F] via-[#026783] to-[#0F172A] z-0 overflow-hidden rounded-b-[2.5rem] shadow-lg transition-all duration-500">
           <div className="absolute top-0 right-0 -mt-20 -mr-20 w-96 h-96 bg-white opacity-5 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-0 left-10 w-72 h-72 bg-emerald-400 opacity-10 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-0 left-10 w-72 h-72 bg-blue-400 opacity-10 rounded-full blur-3xl"></div>
         </div>
       )}
 
@@ -232,7 +241,7 @@ export default function DoctorDashboard({
               <h2 className="text-2xl md:text-3xl font-extrabold text-white font-headline tracking-tight drop-shadow-sm">
                 {language === "es" ? `Buen día, ${useAuthStore.getState().user?.name || 'Dr. Quispe'}` : `Allillanchu t'uta, ${useAuthStore.getState().user?.name || 'Dr. Quispe'}`}
               </h2>
-              <p className="text-teal-100/90 font-medium mt-1 text-xs md:text-sm">
+              <p className="text-cyan-100/90 font-medium mt-1 text-xs md:text-sm">
                 Centro de Telemedicina y Triage Rural
               </p>
             </div>
@@ -240,13 +249,13 @@ export default function DoctorDashboard({
             <div className="flex items-center gap-3">
               <button 
                 onClick={onOpenRegisterModal}
-                className="bg-emerald-500 hover:bg-emerald-400 text-white border border-emerald-400/50 backdrop-blur-md px-3.5 py-2 rounded-2xl text-xs font-bold shadow-md transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                className="bg-blue-500 hover:bg-blue-400 text-white border border-blue-400/50 backdrop-blur-md px-3.5 py-2 rounded-2xl text-xs font-bold shadow-md transition-all duration-300 hover:scale-105 flex items-center gap-2"
               >
                 <Plus className="w-3.5 h-3.5" /> Registrar
               </button>
               <button 
                 onClick={() => onSetLanguage(language === "es" ? "qu" : "es")}
-                className="bg-teal-700/50 hover:bg-teal-600 text-white border border-teal-500/30 backdrop-blur-md px-3.5 py-2 rounded-2xl text-xs font-bold shadow-md transition-all duration-300 hover:scale-105 flex items-center gap-2 whitespace-nowrap"
+                className="bg-cyan-700/50 hover:bg-cyan-600 text-white border border-cyan-500/30 backdrop-blur-md px-3.5 py-2 rounded-2xl text-xs font-bold shadow-md transition-all duration-300 hover:scale-105 flex items-center gap-2 whitespace-nowrap"
               >
                 <Globe className="w-3.5 h-3.5" />
                 {language === "es" ? "Runasimi (QU)" : "Español (ES)"}
@@ -292,7 +301,7 @@ export default function DoctorDashboard({
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[85vh]">
             <div className="lg:col-span-2 flex flex-col bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="p-4 bg-slate-900 text-white flex justify-between items-center">
-                <span className="font-bold flex items-center gap-2"><Video className="text-emerald-400 w-5 h-5"/> Videollamada en Curso</span>
+                <span className="font-bold flex items-center gap-2"><Video className="text-blue-400 w-5 h-5"/> Videollamada en Curso</span>
               </div>
               <div className="flex-1">
                 <JitsiCall roomName={activeCallRoom} displayName={useAuthStore.getState().user?.name || 'Dr. Quispe'} onEndCall={handleEndCall} />
@@ -300,9 +309,9 @@ export default function DoctorDashboard({
             </div>
             
             <div className="flex flex-col bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden relative">
-              <div className="p-4 bg-emerald-50 border-b border-emerald-100 flex justify-between items-center">
-                <span className="font-bold text-emerald-800 flex items-center gap-2"><FolderLock className="w-5 h-5"/> Historial Clínico Rápido</span>
-                <button onClick={() => setShowFullRecord(true)} className="text-xs bg-white border border-emerald-200 px-3 py-1.5 rounded-lg text-emerald-700 font-bold hover:bg-emerald-100 shadow-sm transition-colors">
+              <div className="p-4 bg-blue-50 border-b border-blue-100 flex justify-between items-center">
+                <span className="font-bold text-blue-800 flex items-center gap-2"><FolderLock className="w-5 h-5"/> Historial Clínico Rápido</span>
+                <button onClick={() => setShowFullRecord(true)} className="text-xs bg-white border border-blue-200 px-3 py-1.5 rounded-lg text-blue-700 font-bold hover:bg-blue-100 shadow-sm transition-colors">
                   Ver Expediente Completo
                 </button>
               </div>
@@ -313,18 +322,18 @@ export default function DoctorDashboard({
                 <textarea 
                   value={quickNotes}
                   onChange={(e) => setQuickNotes(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 min-h-[150px] mb-6 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all shadow-inner" 
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 min-h-[150px] mb-6 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-inner" 
                   placeholder="Escribe aquí los síntomas, diagnóstico..."
                 ></textarea>
                 
                 <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2 justify-between">
                   <span>Prescripción Médica</span>
-                  <span className="text-emerald-600 flex items-center gap-1"><Award className="w-3 h-3"/> Traducción IA Automática</span>
+                  <span className="text-blue-600 flex items-center gap-1"><Award className="w-3 h-3"/> Traducción IA Automática</span>
                 </label>
                 <textarea 
                   value={quickPrescription}
                   onChange={(e) => setQuickPrescription(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 min-h-[100px] focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all shadow-inner" 
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 min-h-[100px] focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-inner" 
                   placeholder="Ej: Paracetamol 500mg cada 8 horas. Reposo absoluto."
                 ></textarea>
                 
@@ -345,18 +354,18 @@ export default function DoctorDashboard({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {/* Card 1: Patients in Queue */}
               <div className="bg-white/80 backdrop-blur-md border border-slate-200/60 rounded-3xl p-5 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 group relative overflow-hidden">
-                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl group-hover:bg-emerald-500/10 transition-colors"></div>
+                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-blue-500/5 rounded-full blur-xl group-hover:bg-blue-500/10 transition-colors"></div>
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">En Cola de Triage</p>
                     <h3 className="text-3xl font-black text-slate-800 mt-2 font-headline">{queuePatients.length}</h3>
                   </div>
-                  <div className={`p-3 rounded-2xl ${isTelemedicineActive ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'} flex items-center justify-center`}>
+                  <div className={`p-3 rounded-2xl ${isTelemedicineActive ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-400'} flex items-center justify-center`}>
                     <Users className={`w-6 h-6 ${isTelemedicineActive && queuePatients.length > 0 ? 'animate-bounce' : ''}`} />
                   </div>
                 </div>
                 <div className="mt-4 flex items-center gap-1.5 text-xs">
-                  <span className={`w-2 h-2 rounded-full ${isTelemedicineActive ? 'bg-emerald-500 animate-ping' : 'bg-slate-400'}`}></span>
+                  <span className={`w-2 h-2 rounded-full ${isTelemedicineActive ? 'bg-blue-500 animate-ping' : 'bg-slate-400'}`}></span>
                   <span className="font-semibold text-slate-500">
                     {isTelemedicineActive ? 'Canal de telemedicina activo' : 'Canal offline'}
                   </span>
@@ -365,7 +374,7 @@ export default function DoctorDashboard({
 
               {/* Card 2: Consultations completed today */}
               <div className="bg-white/80 backdrop-blur-md border border-slate-200/60 rounded-3xl p-5 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 group relative overflow-hidden">
-                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-teal-500/5 rounded-full blur-xl group-hover:bg-teal-500/10 transition-colors"></div>
+                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-cyan-500/5 rounded-full blur-xl group-hover:bg-cyan-500/10 transition-colors"></div>
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Atendidos Hoy</p>
@@ -373,12 +382,12 @@ export default function DoctorDashboard({
                       {doctorAppointments.filter(a => a.status === 'Completed').length}
                     </h3>
                   </div>
-                  <div className="p-3 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center">
+                  <div className="p-3 rounded-2xl bg-cyan-50 text-cyan-600 flex items-center justify-center">
                     <Activity className="w-6 h-6" />
                   </div>
                 </div>
                 <div className="mt-4 flex items-center gap-1.5 text-xs">
-                  <TrendingUp className="w-4 h-4 text-teal-500" />
+                  <TrendingUp className="w-4 h-4 text-cyan-500" />
                   <span className="font-semibold text-slate-500">Actualizado hace unos instantes</span>
                 </div>
               </div>
@@ -405,14 +414,14 @@ export default function DoctorDashboard({
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
               {/* Agenda de Citas */}
               <section className="lg:col-span-7 xl:col-span-8 flex flex-col bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden min-h-[500px]">
-                <div className="p-5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white flex justify-between items-center">
+                <div className="p-5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white flex justify-between items-center">
                   <div className="flex items-center gap-3">
                     <Calendar className="w-5 h-5" />
                     <div>
                       <h3 className="text-base md:text-lg font-bold font-headline">
                         {language === "es" ? "Agenda y Control de Citas" : "Citas Allichay"}
                       </h3>
-                      <p className="text-[11px] text-teal-100/80 font-medium">
+                      <p className="text-[11px] text-cyan-100/80 font-medium">
                         {agendaViewMode === "day" 
                           ? (language === "es" ? "Visualización de citas para hoy" : "Kunan p'unchay citas qhaway")
                           : (language === "es" ? "Calendario de citas mensual" : "Killa citas allichay")}
@@ -435,7 +444,7 @@ export default function DoctorDashboard({
                         onClick={() => setAgendaViewMode("day")}
                         className={`px-2.5 py-1 text-[10px] font-black rounded-md transition-all cursor-pointer ${
                           agendaViewMode === "day"
-                            ? "bg-white text-emerald-800 shadow-sm"
+                            ? "bg-white text-blue-800 shadow-sm"
                             : "text-white hover:bg-white/10"
                         }`}
                       >
@@ -446,7 +455,7 @@ export default function DoctorDashboard({
                         onClick={() => setAgendaViewMode("month")}
                         className={`px-2.5 py-1 text-[10px] font-black rounded-md transition-all cursor-pointer ${
                           agendaViewMode === "month"
-                            ? "bg-white text-emerald-800 shadow-sm"
+                            ? "bg-white text-blue-800 shadow-sm"
                             : "text-white hover:bg-white/10"
                         }`}
                       >
@@ -492,10 +501,10 @@ export default function DoctorDashboard({
                               let statusColor = "bg-slate-100 text-slate-700 border-slate-200";
                               let statusLabel = appt.status;
                               if (appt.status === "Completed") {
-                                statusColor = "bg-emerald-50 text-emerald-700 border-emerald-200";
+                                statusColor = "bg-blue-50 text-blue-700 border-blue-200";
                                 statusLabel = language === "es" ? "Completado" : "Tukusqa";
                               } else if (appt.status === "Scheduled") {
-                                statusColor = "bg-teal-50 text-teal-700 border-teal-200";
+                                statusColor = "bg-cyan-50 text-cyan-700 border-cyan-200";
                                 statusLabel = language === "es" ? "Pendiente" : "Suyanaraq";
                               } else if (appt.status === "Cancelled") {
                                 statusColor = "bg-rose-50 text-rose-700 border-rose-200";
@@ -505,7 +514,7 @@ export default function DoctorDashboard({
                               return (
                                 <div 
                                   key={appt.id} 
-                                  className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-emerald-300/50 transition-all duration-200 flex flex-col justify-between"
+                                  className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-blue-300/50 transition-all duration-200 flex flex-col justify-between"
                                 >
                                   <div>
                                     <div className="flex justify-between items-start gap-2 mb-3">
@@ -518,7 +527,7 @@ export default function DoctorDashboard({
                                       </span>
                                     </div>
                                     <div className="flex items-center gap-3 mb-3">
-                                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center font-bold text-xs shadow-inner">
+                                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-cyan-700 text-white flex items-center justify-center font-bold text-xs shadow-inner">
                                         {patientObj?.avatarUrl ? (
                                           <img src={patientObj.avatarUrl} alt={name} className="w-full h-full object-cover rounded-full" />
                                         ) : (
@@ -538,7 +547,7 @@ export default function DoctorDashboard({
                                     <div className="flex gap-2 w-full mt-2 pt-2 border-t border-slate-100">
                                       <button 
                                         onClick={() => handleStartAppointmentCall(appt.patientId, appt.id)}
-                                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold py-2 px-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold py-2 px-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
                                       >
                                         <Video className="w-3.5 h-3.5" />
                                         {language === "es" ? "Teleconsulta" : "Karuhampiy"}
@@ -609,9 +618,9 @@ export default function DoctorDashboard({
                             let btnClasses = "h-8 w-8 text-[11px] rounded-lg flex flex-col items-center justify-center font-bold transition-all relative mx-auto ";
                             
                             if (isSelected) {
-                              btnClasses += "bg-emerald-600 text-white font-black shadow-md shadow-emerald-500/20";
+                              btnClasses += "bg-blue-600 text-white font-black shadow-md shadow-blue-500/20";
                             } else if (hasAppts) {
-                              btnClasses += "bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-600 hover:text-white cursor-pointer";
+                              btnClasses += "bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-600 hover:text-white cursor-pointer";
                             } else {
                               btnClasses += "text-slate-600 hover:bg-slate-100 cursor-pointer";
                             }
@@ -630,7 +639,7 @@ export default function DoctorDashboard({
                                 <span>{cell.day}</span>
                                 {/* Puntito indicador de citas */}
                                 {hasAppts && !isSelected && (
-                                  <span className="absolute bottom-1 w-1 h-1 rounded-full bg-emerald-500 animate-pulse"></span>
+                                  <span className="absolute bottom-1 w-1 h-1 rounded-full bg-blue-500 animate-pulse"></span>
                                 )}
                               </button>
                             );
@@ -680,10 +689,10 @@ export default function DoctorDashboard({
                                   let statusColor = "bg-slate-100 text-slate-700";
                                   let statusLabel = appt.status;
                                   if (appt.status === "Completed") {
-                                    statusColor = "bg-emerald-50 text-emerald-700 border border-emerald-100";
+                                    statusColor = "bg-blue-50 text-blue-700 border border-blue-100";
                                     statusLabel = language === "es" ? "Completado" : "Tukusqa";
                                   } else if (appt.status === "Scheduled") {
-                                    statusColor = "bg-teal-50 text-teal-700 border border-teal-100";
+                                    statusColor = "bg-cyan-50 text-cyan-700 border border-cyan-100";
                                     statusLabel = language === "es" ? "Pendiente" : "Suyanaraq";
                                   } else if (appt.status === "Cancelled") {
                                     statusColor = "bg-rose-50 text-rose-700 border border-rose-100";
@@ -694,7 +703,7 @@ export default function DoctorDashboard({
                                     <div key={appt.id} className="relative group">
                                       {/* Círculo del Timeline */}
                                       <div className={`absolute -left-[21px] top-1.5 w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm transition-all duration-300 ${
-                                        appt.status === "Completed" ? "bg-emerald-500 scale-110" : "bg-teal-500"
+                                        appt.status === "Completed" ? "bg-blue-500 scale-110" : "bg-cyan-500"
                                       }`}></div>
 
                                       <div className="bg-slate-50/50 hover:bg-slate-50 border border-slate-100 rounded-2xl p-4 transition-all duration-200">
@@ -714,7 +723,7 @@ export default function DoctorDashboard({
                                           <div className="flex gap-2 w-full mt-2">
                                             <button 
                                               onClick={() => handleStartAppointmentCall(appt.patientId, appt.id)}
-                                              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold py-2 px-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap"
+                                              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold py-2 px-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap"
                                             >
                                               <Video className="w-3.5 h-3.5" /> {language === "es" ? "Teleconsulta" : "Karuhampiy"}
                                             </button>
@@ -749,7 +758,7 @@ export default function DoctorDashboard({
                     onClick={() => setActiveSideTab("telemed")}
                     className={`flex-1 py-2.5 px-3 text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
                       activeSideTab === "telemed" 
-                        ? "bg-white text-emerald-700 shadow-sm border border-slate-200/50" 
+                        ? "bg-white text-blue-700 shadow-sm border border-slate-200/50" 
                         : "text-slate-500 hover:bg-slate-100"
                     }`}
                   >
@@ -765,7 +774,7 @@ export default function DoctorDashboard({
                     onClick={() => setActiveSideTab("patients")}
                     className={`flex-1 py-2.5 px-3 text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer ${
                       activeSideTab === "patients" 
-                        ? "bg-white text-emerald-700 shadow-sm border border-slate-200/50" 
+                        ? "bg-white text-blue-700 shadow-sm border border-slate-200/50" 
                         : "text-slate-500 hover:bg-slate-100"
                     }`}
                   >
@@ -784,7 +793,7 @@ export default function DoctorDashboard({
                           {language === "es" ? "Estado del Canal" : "Kallpaypa kanan"}
                         </span>
                         <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-                          isTelemedicineActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
+                          isTelemedicineActive ? 'bg-blue-100 text-blue-800' : 'bg-slate-200 text-slate-700'
                         }`}>
                           {isTelemedicineActive ? (language === "es" ? "ACTIVO" : "HAP'ISQA") : (language === "es" ? "OCUPADO" : "P'ATASQA")}
                         </span>
@@ -794,7 +803,7 @@ export default function DoctorDashboard({
                         onClick={() => setIsTelemedicineActive(!isTelemedicineActive)}
                         className={`w-full py-2 px-4 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 border ${
                           isTelemedicineActive 
-                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500/30'
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-500/30'
                             : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
                         }`}
                       >
@@ -806,6 +815,12 @@ export default function DoctorDashboard({
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 beautiful-scrollbar max-h-[380px]">
+                      {queueError && (
+                        <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-2 text-[11px] font-semibold text-rose-600 font-sans">
+                          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                          <span>Error: {queueError}</span>
+                        </div>
+                      )}
                       {!isTelemedicineActive ? (
                         <div className="flex flex-col items-center justify-center py-10 text-center opacity-70">
                           <Video className="w-10 h-10 text-slate-300 mb-3" />
@@ -820,8 +835,8 @@ export default function DoctorDashboard({
                         </div>
                       ) : queuePatients.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-10 text-center opacity-70">
-                          <div className="w-10 h-10 bg-emerald-50 rounded-full flex items-center justify-center mb-3 animate-pulse">
-                            <Search className="w-5 h-5 text-emerald-400" />
+                          <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center mb-3 animate-pulse">
+                            <Search className="w-5 h-5 text-blue-400" />
                           </div>
                           <p className="text-xs font-bold text-slate-600">
                             {language === "es" ? "Sala de espera vacía" : "Ch'usaq chaskina sala"}
@@ -835,16 +850,16 @@ export default function DoctorDashboard({
                           {queuePatients.map((p, i) => (
                             <div 
                               key={p.patientId} 
-                              className="p-3.5 border border-emerald-100 bg-gradient-to-r from-emerald-50/30 to-white rounded-xl flex flex-col gap-3 hover:shadow-md transition-all group"
+                              className="p-3.5 border border-blue-100 bg-gradient-to-r from-blue-50/30 to-white rounded-xl flex flex-col gap-3 hover:shadow-md transition-all group"
                             >
                               <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center font-extrabold text-xs shadow-inner">
+                                <div className="w-8 h-8 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-extrabold text-xs shadow-inner">
                                   #{i+1}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className="font-bold text-slate-800 text-sm truncate">{p.name}</p>
                                   <p className="text-[10px] text-slate-500 font-semibold truncate flex items-center gap-1 mt-0.5">
-                                    <MapPin className="w-3 h-3 text-emerald-500 flex-shrink-0" /> 
+                                    <MapPin className="w-3 h-3 text-blue-500 flex-shrink-0" /> 
                                     {p.location || (language === "es" ? 'Zona Rural' : 'Ayllu')}
                                   </p>
                                 </div>
@@ -856,7 +871,7 @@ export default function DoctorDashboard({
                                 </span>
                                 <button 
                                   onClick={() => handleStartCall(p.patientId)}
-                                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-3.5 py-1.5 rounded-lg font-bold shadow-[0_2px_8px_rgba(5,150,105,0.2)] transition-all flex items-center gap-1.5"
+                                  className="bg-blue-600 hover:bg-blue-700 text-white text-[11px] px-3.5 py-1.5 rounded-lg font-bold shadow-[0_2px_8px_rgba(5,150,105,0.2)] transition-all flex items-center gap-1.5"
                                 >
                                   <Video className="w-3 h-3"/> {language === "es" ? "Atender" : "Atendey"}
                                 </button>
@@ -880,7 +895,7 @@ export default function DoctorDashboard({
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
                           placeholder={language === "es" ? "Buscar por DNI o Nombre..." : "DNI, sutinta maskay..."}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 pl-9 pr-3 text-xs font-medium focus:outline-none focus:border-emerald-500 transition-all"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 pl-9 pr-3 text-xs font-medium focus:outline-none focus:border-blue-500 transition-all"
                         />
                       </div>
                     </div>
@@ -925,7 +940,7 @@ export default function DoctorDashboard({
                 <div className="p-4 border-t border-slate-200 bg-slate-50 text-center flex justify-between items-center mt-auto">
                   <button 
                     onClick={onOpenRegisterModal}
-                    className="flex items-center gap-1 text-xs font-bold text-emerald-700 hover:text-emerald-800 transition-colors hover:underline cursor-pointer"
+                    className="flex items-center gap-1 text-xs font-bold text-blue-700 hover:text-blue-800 transition-colors hover:underline cursor-pointer"
                   >
                     <Plus className="w-4 h-4" /> {language === "es" ? "Registrar Nuevo Paciente" : "Mosoq pacienteta qillqay"}
                   </button>

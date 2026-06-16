@@ -55,3 +55,6 @@ coverage/
 
 # Vite cache
 .vite/
+
+# Agent local state
+.antigravity/

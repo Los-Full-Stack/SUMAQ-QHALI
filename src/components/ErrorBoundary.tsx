@@ -47,7 +47,7 @@ export default class ErrorBoundary extends Component<Props, State> {
                 localStorage.removeItem("sumaq_token");
                 window.location.href = "/";
               }}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg"
             >
               Reiniciar Aplicación
             </button>

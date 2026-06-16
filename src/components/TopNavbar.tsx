@@ -50,7 +50,7 @@ export default function TopNavbar({
         <img src="/logo.svg" alt="Sumaq Qhali" className="w-6 h-6 object-contain" />
         <div className="hidden sm:block">
           <h1 className="text-lg font-bold font-headline select-none leading-tight">SUMAQ QHALI</h1>
-          <p className="text-[10px] text-teal-200 uppercase tracking-widest font-semibold leading-none">Bilingual EHR</p>
+          <p className="text-[10px] text-cyan-200 uppercase tracking-widest font-semibold leading-none">Bilingual EHR</p>
         </div>
       </div>
 
@@ -60,14 +60,14 @@ export default function TopNavbar({
           <div className="flex gap-1 md:gap-2">
             <button 
               onClick={() => handleNavigation("doctor", "/doctor")}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${role === 'doctor' ? 'bg-[#002d50] text-teal-300' : 'text-slate-300 hover:bg-[#002d50]/50 hover:text-white'}`}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${role === 'doctor' ? 'bg-[#002d50] text-cyan-300' : 'text-slate-300 hover:bg-[#002d50]/50 hover:text-white'}`}
             >
               <LayoutDashboard className="w-4 h-4 shrink-0" />
               <span className="hidden md:inline">Panel Médico</span>
             </button>
             <button 
               onClick={() => handleNavigation("administrator", "/admin")}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${role === 'administrator' ? 'bg-[#002d50] text-teal-300' : 'text-slate-300 hover:bg-[#002d50]/50 hover:text-white'}`}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${role === 'administrator' ? 'bg-[#002d50] text-cyan-300' : 'text-slate-300 hover:bg-[#002d50]/50 hover:text-white'}`}
             >
               <Building2 className="w-4 h-4 shrink-0" />
               <span className="hidden lg:inline">Panel Admin</span>
@@ -98,11 +98,11 @@ export default function TopNavbar({
         {/* Language Switcher */}
         <button 
           onClick={() => setLanguage(language === "es" ? "qu" : "es")}
-          className="bg-[#002b4d] border border-[#042844] hover:bg-[#00213d] flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-teal-100 font-semibold cursor-pointer transition-colors"
+          className="bg-[#002b4d] border border-[#042844] hover:bg-[#00213d] flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-cyan-100 font-semibold cursor-pointer transition-colors"
           title="Cambiar Idioma"
         >
           <Globe className="w-4 h-4" />
-          <span className="bg-teal-900 border border-teal-700 text-teal-200 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold">
+          <span className="bg-cyan-900 border border-cyan-700 text-cyan-200 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold">
             {language === "es" ? "ES" : "QU"}
           </span>
         </button>
@@ -110,7 +110,7 @@ export default function TopNavbar({
         {/* Connection Toggle */}
         <button 
           onClick={() => setIsOffline(!isOffline)}
-          className={`w-8 h-8 rounded-md flex items-center justify-center transition-colors cursor-pointer ${isOffline ? "bg-rose-500 text-white" : "bg-[#0b3c64] text-teal-300 hover:bg-[#002b4d]"}`}
+          className={`w-8 h-8 rounded-md flex items-center justify-center transition-colors cursor-pointer ${isOffline ? "bg-rose-500 text-white" : "bg-[#0b3c64] text-cyan-300 hover:bg-[#002b4d]"}`}
           title={isOffline ? "Reconectar a la red" : "Simular desconexión"}
         >
           {isOffline ? <WifiOff className="w-4 h-4" /> : <Wifi className="w-4 h-4" />}
@@ -122,7 +122,7 @@ export default function TopNavbar({
         <div className="flex items-center gap-3">
           <div className="relative">
             {role === "patient_portal" && portalPatient ? (
-              <div className="w-8 h-8 rounded-full border border-slate-50 bg-teal-600 flex items-center justify-center text-white font-black text-sm shadow-md">
+              <div className="w-8 h-8 rounded-full border border-slate-50 bg-cyan-600 flex items-center justify-center text-white font-black text-sm shadow-md">
                 {portalPatient.name.charAt(0)}
               </div>
             ) : (
@@ -132,7 +132,7 @@ export default function TopNavbar({
                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuAM5UaqUkh2sx56STozqM32WevhNLGQ_7NBw-fl5xNG78VTY3So6rcpMCqHYVuI1hTJrxQW1fh_K-88lFGYTY-ByA0eBo3d-DKNwLtECMpjFiU2gkTjRzFPluL_8Zy_wQ_Ps9UX0QVcD2I8wNjwuUdPzSA9CrP8UsTJ7gfF32jaelRi1lQTvrOLd3lC0Yey1n9vLJ8LYpzLYscBGmbfzy_hWlL_z2rKzjNcM9-wcQhwZsh6S51INIBlR1Saf0K5ekGo-yIU1gyJGfw"
               />
             )}
-            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-primary"></span>
+            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 rounded-full border-2 border-primary"></span>
           </div>
           
           <button 

@@ -385,11 +385,11 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
   };
 
   return (
-    <div className="flex-grow flex flex-col bg-slate-50 font-sans overflow-y-auto w-full relative min-h-screen">
+    <div className="flex-grow flex flex-col bg-slate-50 font-sans overflow-y-auto beautiful-scrollbar w-full relative min-h-screen">
       {/* Premium Background Banner */}
-      <div className="absolute top-0 left-0 right-0 h-[220px] bg-gradient-to-br from-[#064E3B] via-[#0F766E] to-[#0F172A] z-0 overflow-hidden rounded-b-[2.5rem] shadow-lg">
+      <div className="absolute top-0 left-0 right-0 h-[220px] bg-gradient-to-br from-[#00355F] via-[#026783] to-[#0F172A] z-0 overflow-hidden rounded-b-[2.5rem] shadow-lg">
         <div className="absolute top-0 right-0 -mt-20 -mr-20 w-96 h-96 bg-white opacity-5 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-0 left-10 w-72 h-72 bg-emerald-400 opacity-10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-10 w-72 h-72 bg-blue-400 opacity-10 rounded-full blur-3xl"></div>
       </div>
 
       <div className="max-w-[1440px] mx-auto w-full flex flex-col gap-6 px-4 lg:px-10 pt-4 pb-6 z-10 relative">
@@ -400,7 +400,7 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
             <h2 className="text-2xl md:text-3xl font-extrabold text-white font-headline tracking-tight drop-shadow-sm">
               {dict.portalTitle}
             </h2>
-            <p className="text-teal-100/90 font-medium mt-1 text-xs md:text-sm">
+            <p className="text-cyan-100/90 font-medium mt-1 text-xs md:text-sm">
               {dict.portalDesc}
             </p>
           </div>
@@ -408,7 +408,7 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
             <div className="flex items-center gap-3">
               <button 
                 onClick={toggleLanguage}
-                className="bg-teal-700/50 hover:bg-teal-600 text-white border border-teal-500/30 backdrop-blur-md px-3.5 py-2 rounded-2xl text-xs font-bold shadow-md transition-all duration-300 hover:scale-105 flex items-center gap-2 whitespace-nowrap"
+                className="bg-cyan-700/50 hover:bg-cyan-600 text-white border border-cyan-500/30 backdrop-blur-md px-3.5 py-2 rounded-2xl text-xs font-bold shadow-md transition-all duration-300 hover:scale-105 flex items-center gap-2 whitespace-nowrap"
               >
                 <Globe className="w-3.5 h-3.5" />
                 {language === "es" ? "Runasimi (QU)" : "Español (ES)"}
@@ -430,18 +430,18 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
             
             {activeCallRoom ? (
               <div className="bg-white rounded-3xl p-4 shadow-xl border border-slate-100 flex flex-col items-center h-[70vh]">
-                <h3 className="text-xl font-bold text-slate-800 mb-4 font-headline flex items-center gap-2"><Video className="text-emerald-500"/> Teleconsulta en Vivo</h3>
+                <h3 className="text-xl font-bold text-slate-800 mb-4 font-headline flex items-center gap-2"><Video className="text-blue-500"/> Teleconsulta en Vivo</h3>
                 <JitsiCall roomName={activeCallRoom} displayName={portalPatient.name} onEndCall={() => setActiveCallRoom(null)} />
               </div>
             ) : isInQueue ? (
               <div className="bg-white/90 backdrop-blur-md rounded-3xl p-12 shadow-xl border border-white text-center flex flex-col items-center max-w-2xl mx-auto my-10">
-                <div className="w-20 h-20 mb-6 bg-emerald-100 rounded-full flex items-center justify-center animate-pulse shadow-inner">
-                  <Video className="w-10 h-10 text-emerald-600" />
+                <div className="w-20 h-20 mb-6 bg-blue-100 rounded-full flex items-center justify-center animate-pulse shadow-inner">
+                  <Video className="w-10 h-10 text-blue-600" />
                 </div>
                 <h3 className="text-2xl font-bold text-slate-800 mb-2 font-headline">Buscando médico disponible...</h3>
                 <p className="text-slate-500 font-medium mb-6">Por favor, no cierres esta ventana. Serás atendido en breve.</p>
-                <div className="bg-emerald-50 text-emerald-800 px-6 py-3 rounded-2xl border border-emerald-100 font-bold text-lg shadow-sm">
-                  Eres el número <span className="text-2xl text-emerald-600">{queuePosition}</span> en la cola
+                <div className="bg-blue-50 text-blue-800 px-6 py-3 rounded-2xl border border-blue-100 font-bold text-lg shadow-sm">
+                  Eres el número <span className="text-2xl text-blue-600">{queuePosition}</span> en la cola
                 </div>
                 <button onClick={handleCancelQueue} className="mt-8 text-rose-500 font-bold hover:underline flex items-center gap-1">
                   <X className="w-4 h-4"/> Cancelar solicitud
@@ -454,16 +454,16 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
               
               {/* 1. Profile Card */}
               <div className="bg-white/90 backdrop-blur-2xl rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-white flex flex-col gap-6 relative overflow-hidden group hover:shadow-[0_8px_30px_rgb(0,0,0,0.1)] transition-all duration-300 h-full">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-100 to-transparent rounded-bl-full z-0 opacity-50 transition-transform group-hover:scale-110"></div>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-100 to-transparent rounded-bl-full z-0 opacity-50 transition-transform group-hover:scale-110"></div>
                 
                 <div className="relative z-10 flex items-center gap-4 border-b border-slate-100/60 pb-5">
-                  <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/30 ring-4 ring-white flex-shrink-0">
+                  <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/30 ring-4 ring-white flex-shrink-0">
                     <UserCheck className="w-7 h-7" />
                   </div>
                   <div>
                     <h3 className="text-xl font-black text-slate-800 font-headline leading-tight">{portalPatient.name}</h3>
                     <div className="flex items-center gap-1.5 mt-1 text-xs text-slate-500 font-medium">
-                      <MapPin className="w-3 h-3 text-emerald-500" /> {portalPatient.location}
+                      <MapPin className="w-3 h-3 text-blue-500" /> {portalPatient.location}
                     </div>
                   </div>
                 </div>
@@ -488,7 +488,7 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
               <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col gap-5 h-full">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+                    <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
                       <CalendarClock className="w-5 h-5" />
                     </div>
                     <h3 className="text-lg font-bold text-slate-800 font-headline">{dict.agendaTitle}</h3>
@@ -497,7 +497,7 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
                 
                 <button 
                   onClick={handleImmediateAttention}
-                  className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-4 py-3 rounded-xl text-sm font-bold shadow-lg shadow-teal-500/30 transition-all hover:-translate-y-0.5 flex items-center justify-center gap-2 animate-pulse-slow"
+                  className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white px-4 py-3 rounded-xl text-sm font-bold shadow-lg shadow-cyan-500/30 transition-all hover:-translate-y-0.5 flex items-center justify-center gap-2 animate-pulse-slow"
                 >
                   <Video className="w-4 h-4" />
                   Atención Inmediata
@@ -514,23 +514,24 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
                   <div className="flex flex-col gap-3 max-h-[220px] overflow-y-auto beautiful-scrollbar pr-2 mt-2">
                     {myAppointments.map((appt, i) => {
                       const parts = appt.startTime.split(" ");
-                      const datePart = parts[0];
-                      const timePart = parts.slice(1).join(" ");
-                      const d = new Date(datePart);
-                      const month = isNaN(d.getTime()) ? "MES" : d.toLocaleDateString(language === "es" ? "es-ES" : "qu-PE", { month: "short" }).toUpperCase();
+                      const hasDate = parts.length > 1 && parts[0].includes("-");
+                      const datePart = hasDate ? parts[0] : new Date().toISOString().split("T")[0];
+                      const timePart = hasDate ? parts.slice(1).join(" ") : appt.startTime;
+                      const d = new Date(datePart + "T00:00:00");
+                      const month = isNaN(d.getTime()) ? "CITA" : d.toLocaleDateString(language === "es" ? "es-ES" : "qu-PE", { month: "short" }).toUpperCase();
                       const day = isNaN(d.getTime()) ? "00" : d.getDate().toString().padStart(2, "0");
 
                       return (
                         <div key={i} className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100/80 rounded-2xl border border-slate-100 transition-colors group">
                           <div className="flex items-center gap-3">
                             <div className="bg-white shadow-sm border border-slate-200 rounded-xl py-1.5 w-12 text-center flex flex-col items-center justify-center">
-                              <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest">{month}</span>
+                              <span className="text-[8px] font-black text-blue-600 uppercase tracking-widest">{month}</span>
                               <span className="text-base font-black text-slate-800 leading-tight">{day}</span>
                             </div>
                             <div className="flex flex-col">
                               <p className="text-xs font-bold text-slate-800">{appt.type || "Consulta General"}</p>
                               <p className="text-[10px] text-slate-500 font-medium flex items-center gap-1 mt-0.5">
-                                <Clock className="w-3 h-3 text-emerald-500" /> {timePart || appt.startTime}
+                                <Clock className="w-3 h-3 text-blue-500" /> {timePart || appt.startTime}
                               </p>
                               {appt.doctorName && (
                                 <p className="text-[9px] text-slate-400 font-bold mt-0.5">Med: {appt.doctorName}</p>
@@ -543,7 +544,7 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
                                 const safeId = appt.id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
                                 setActiveCallRoom(`sqsalaappt${safeId}`);
                               }}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                              className="bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 cursor-pointer"
                               title="Iniciar videollamada de la cita"
                             >
                               <Video className="w-3 h-3" />
@@ -645,15 +646,15 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
               </div>
               
               {portalPatient.consultations?.length > 0 ? (
-                <div className="relative border-l-2 border-emerald-100 ml-4 lg:ml-6 space-y-10 py-4">
+                <div className="relative border-l-2 border-blue-100 ml-4 lg:ml-6 space-y-10 py-4">
                   {portalPatient.consultations.map((cons: any, idx: number) => (
                     <div key={idx} className="relative pl-6 lg:pl-10 group">
                       {/* Timeline Dot */}
-                      <div className="absolute -left-[11px] top-1 w-5 h-5 rounded-full bg-emerald-500 ring-4 ring-white shadow-sm transition-transform group-hover:scale-125 duration-300"></div>
+                      <div className="absolute -left-[11px] top-1 w-5 h-5 rounded-full bg-blue-500 ring-4 ring-white shadow-sm transition-transform group-hover:scale-125 duration-300"></div>
                       
                       {/* Date and Diagnosis */}
                       <div className="flex flex-col mb-4">
-                        <span className="text-xs font-black text-emerald-600 tracking-wider uppercase mb-1">
+                        <span className="text-xs font-black text-blue-600 tracking-wider uppercase mb-1">
                           {new Date(cons.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
                         </span>
                         <h4 className="text-xl font-bold text-slate-800">{cons.diagnosisTitle}</h4>
@@ -677,14 +678,14 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
                             <Heart className="w-3 h-3"/> {dict.aiIndications}
                           </p>
                           <p className="text-sm text-slate-700 leading-relaxed font-medium break-words">
-                            Rimaykullayki unqusqanchis, <span className="font-bold text-emerald-700">{portalPatient.name}</span>. Hampiy kashan:<br/><br/>
+                            Rimaykullayki unqusqanchis, <span className="font-bold text-blue-700">{portalPatient.name}</span>. Hampiy kashan:<br/><br/>
                             {cons.prescriptions && cons.prescriptions.map((p: any, i: number) => (
                               <span key={i} className="flex items-center gap-2 mb-1">
                                 <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span> 
                                 <span className="font-bold">{p.name}:</span> {p.dosage} por {p.duration}.
                               </span>
                             ))}
-                            <span className="block mt-4 p-3 bg-emerald-50 text-emerald-800 rounded-lg text-xs border border-emerald-100">
+                            <span className="block mt-4 p-3 bg-blue-50 text-blue-800 rounded-lg text-xs border border-blue-100">
                               <strong>{dict.recommendation}:</strong> Dr. Quispepa nisqan hina puririnaykipaq sapa tutam suti unkupis kachita qispilla kawsay.
                             </span>
                           </p>
@@ -720,7 +721,7 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
                 <h3 className="text-xl font-bold text-slate-800 mb-2">Error de Sincronización</h3>
                 <p className="text-sm text-slate-500 font-medium mb-6 leading-relaxed">{loadError}</p>
                 <div className="flex gap-4">
-                  <button onClick={fetchPatientData} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md cursor-pointer">
+                  <button onClick={fetchPatientData} className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md cursor-pointer">
                     Reintentar
                   </button>
                   <button onClick={() => setLogout()} className="bg-rose-500/20 hover:bg-rose-500 text-rose-700 border border-rose-500/30 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer">
@@ -730,7 +731,7 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
               </>
             ) : (
               <>
-                <div className="w-12 h-12 border-4 border-emerald-100 border-t-emerald-500 rounded-full animate-spin mb-6"></div>
+                <div className="w-12 h-12 border-4 border-blue-100 border-t-blue-500 rounded-full animate-spin mb-6"></div>
                 <h3 className="text-xl font-bold text-slate-800 mb-2">{dict.connecting}</h3>
                 <p className="text-slate-500 font-medium">{dict.syncing}</p>
               </>
@@ -742,28 +743,28 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
       {/* Modal Nueva Cita */}
       {isApptModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden animate-scale-up font-sans">
-            <div className="px-6 py-5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white flex justify-between items-center">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden animate-scale-up font-sans flex flex-col max-h-[90vh]">
+            <div className="px-6 py-5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white flex justify-between items-center shrink-0">
               <h3 className="font-bold font-headline text-lg">{dict.modalTitle}</h3>
-              <button onClick={() => setIsApptModalOpen(false)} className="p-1 hover:bg-white/20 rounded-full transition-colors text-white">
+              <button onClick={() => setIsApptModalOpen(false)} className="p-1 hover:bg-white/20 rounded-full transition-colors text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleScheduleAppt} className="p-6 flex flex-col gap-4">
+            <form onSubmit={handleScheduleAppt} className="p-6 flex flex-col gap-4 overflow-y-auto beautiful-scrollbar">
               <div>
                 <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">{dict.specialty}</label>
                 <select 
                   value={newApptForm.type}
                   onChange={(e) => setNewApptForm({ ...newApptForm, type: e.target.value, date: "", time: "" })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-sm font-medium text-slate-700 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-sm font-medium text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer"
                 >
                   <option>Consulta General</option>
                   <option>Pediatría</option>
                   <option>Control de Presión</option>
                   <option>Ginecología</option>
                 </select>
-                <p className="text-[11px] text-teal-700 font-semibold mt-1.5 flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-teal-600" />
+                <p className="text-[11px] text-cyan-700 font-semibold mt-1.5 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-cyan-600" />
                   {getSpecialtyScheduleText()}
                 </p>
               </div>
@@ -833,9 +834,9 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
                         btnClasses += "text-slate-300 cursor-not-allowed bg-transparent";
                         disabled = true;
                       } else if (isSelected) {
-                        btnClasses += "bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 scale-105 border border-emerald-600";
+                        btnClasses += "bg-blue-600 text-white shadow-lg shadow-blue-500/20 scale-105 border border-blue-600";
                       } else {
-                        btnClasses += "bg-emerald-500/10 text-emerald-700 hover:bg-emerald-600 hover:text-white border border-emerald-500/20 cursor-pointer";
+                        btnClasses += "bg-blue-500/10 text-blue-700 hover:bg-blue-600 hover:text-white border border-blue-500/20 cursor-pointer";
                       }
 
                       if (!isCurrentMonth && !isSelected && !isPast && hasService) {
@@ -878,7 +879,7 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
                         onClick={() => setNewApptForm(prev => ({ ...prev, time: slot }))}
                         className={`py-2 px-1 text-center rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                           newApptForm.time === slot
-                            ? "bg-emerald-600 border-emerald-600 text-white shadow-md shadow-emerald-500/20 scale-105"
+                            ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-500/20 scale-105"
                             : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300"
                         }`}
                       >

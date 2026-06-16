@@ -3,7 +3,7 @@ import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
-import sql from "mssql";
+import pg from "pg";
 import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -81,82 +81,187 @@ function readSqlLog() {
   }
 }
 
-// SQL Server Configuration
-const sqlConfig = {
-  user: process.env.DB_USER || "sa",
-  password: process.env.DB_PASSWORD || "your_password",
-  database: process.env.DB_NAME || "SumaqQhali",
-  server: process.env.DB_SERVER || "localhost",
-  pool: { max: 10, min: 0, idleTimeoutMillis: 30000 },
-  options: { encrypt: false, trustServerCertificate: true, connectTimeout: 5000, requestTimeout: 10000 }
-};
-
-let dbPool: sql.ConnectionPool | null = null;
+let dbPool: pg.Pool | null = null;
 let dbError: string | null = null;
 
-// Try to connect with a timeout — never hang the server
+// Try to connect and run migrations/seedings
 (async () => {
+  let pool: pg.Pool;
+  
+  const hasValidUrl = process.env.DATABASE_URL && 
+                       !process.env.DATABASE_URL.includes("[TU_CONTRASEÑA]") && 
+                       !process.env.DATABASE_URL.includes("YOUR_SUPABASE") &&
+                       !process.env.DATABASE_URL.includes("[PASSWORD]") &&
+                       process.env.DATABASE_URL.startsWith("postgresql://");
+
   try {
-    const pool = await Promise.race([
-      sql.connect(sqlConfig),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("DB connection timeout (5s)")), 5000))
-    ]);
-    dbPool = pool;
-    console.log("✅ SQL Server connected successfully.");
-
-    try {
-      const checkPts = await pool.request().query("SELECT PatientID, FullName, DNI FROM Patients");
-      console.log(`🌱 Current patients in DB: ${checkPts.recordset.length}`);
-      checkPts.recordset.forEach(p => {
-        console.log(`   - Patient: ${p.FullName} (DNI: ${p.DNI}, ID: ${p.PatientID})`);
+    if (hasValidUrl) {
+      console.log("🔌 Attempting database connection via DATABASE_URL...");
+      pool = new pg.Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false }
       });
-    } catch (err) {
-      console.error("Failed to log patients on boot:", err);
+      // Connection test
+      await Promise.race([
+        pool.query("SELECT 1"),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("DB connection timeout (5s)")), 5000))
+      ]);
+    } else {
+      throw new Error("DATABASE_URL is not set or contains default placeholders.");
     }
+  } catch (err: any) {
+    console.warn(`⚠️ DATABASE_URL connection failed: ${err.message}. Trying desegregated configuration variables...`);
     
-    // Auto-migrate columns
     try {
-      await pool.request().query(`
-        IF NOT EXISTS(SELECT * FROM sys.columns WHERE Name = N'Password' AND Object_ID = Object_ID(N'Patients'))
-        BEGIN
-            ALTER TABLE Patients ADD Password NVARCHAR(255) NULL;
-            PRINT 'Added Password column to Patients';
-        END
+      const fallbackConfig = {
+        user: process.env.DB_USER || "postgres",
+        password: process.env.DB_PASSWORD || "",
+        host: process.env.DB_SERVER || "localhost",
+        database: process.env.DB_NAME || "postgres",
+        port: Number(process.env.DB_PORT) || 5432,
+        ssl: (process.env.DB_SERVER && process.env.DB_SERVER !== "localhost") ? { rejectUnauthorized: false } : false
+      };
+      
+      pool = new pg.Pool(fallbackConfig);
+      // Connection test on fallback
+      await Promise.race([
+        pool.query("SELECT 1"),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("DB connection timeout (5s)")), 5000))
+      ]);
+    } catch (fallbackErr: any) {
+      dbError = fallbackErr.message;
+      console.error("⚠️ PostgreSQL NOT available via fallback:", fallbackErr.message);
+      console.error("   The app will run with empty data. Check Supabase credentials in your .env file.");
+      return;
+    }
+  }
 
-        IF NOT EXISTS(SELECT * FROM sys.columns WHERE Name = N'DoctorName' AND Object_ID = Object_ID(N'Appointments'))
-        BEGIN
-            ALTER TABLE Appointments ADD DoctorName NVARCHAR(255) NULL;
-            PRINT 'Added DoctorName column to Appointments';
-        END
+  dbPool = pool;
+  console.log("✅ PostgreSQL/Supabase connected successfully.");
 
-        IF NOT EXISTS(SELECT * FROM sys.columns WHERE Name = N'FileURL' AND Object_ID = Object_ID(N'MedicalFiles'))
-        BEGIN
-            ALTER TABLE MedicalFiles ADD FileURL NVARCHAR(500) NULL;
-            PRINT 'Added FileURL column to MedicalFiles';
-        END
+    // Create Tables if not exist (Auto-Migration)
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS Patients (
+            PatientID VARCHAR(100) PRIMARY KEY,
+            MedicalHistoryNumber VARCHAR(100),
+            FullName VARCHAR(255) NOT NULL,
+            Status VARCHAR(50) NOT NULL,
+            Age INT,
+            DNI VARCHAR(50) UNIQUE,
+            BloodType VARCHAR(10),
+            Location VARCHAR(255),
+            Email VARCHAR(255),
+            Phone VARCHAR(50),
+            Gender VARCHAR(50),
+            Password VARCHAR(255),
+            AvatarURL VARCHAR(255)
+        );
 
-        IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'TelemedicineQueue') AND type in (N'U'))
-        BEGIN
-            CREATE TABLE TelemedicineQueue (
-                PatientID VARCHAR(100) NOT NULL PRIMARY KEY,
-                FullName NVARCHAR(255) NOT NULL,
-                Location NVARCHAR(255) NOT NULL,
-                Status VARCHAR(50) NOT NULL,
-                JoinedAt BIGINT NOT NULL,
-                DoctorName NVARCHAR(255) NULL
-            );
-            PRINT 'Created TelemedicineQueue table';
-        END
+        CREATE TABLE IF NOT EXISTS Appointments (
+            AppointmentID VARCHAR(100) PRIMARY KEY,
+            PatientID VARCHAR(100),
+            StartTime VARCHAR(100),
+            EndTime VARCHAR(100),
+            Status VARCHAR(50),
+            Type VARCHAR(100),
+            DoctorName VARCHAR(255)
+        );
 
-        -- Ampliar longitud de columnas de citas
-        ALTER TABLE Appointments ALTER COLUMN StartTime VARCHAR(100) NULL;
-        ALTER TABLE Appointments ALTER COLUMN EndTime VARCHAR(100) NULL;
-        PRINT 'Updated StartTime/EndTime column lengths to VARCHAR(100)';
+        CREATE TABLE IF NOT EXISTS DoctorShifts (
+            ShiftID VARCHAR(100) PRIMARY KEY,
+            DoctorName VARCHAR(255),
+            Specialty VARCHAR(255),
+            DayOfWeek INT,
+            SlotTime VARCHAR(100),
+            IsActive INT DEFAULT 1,
+            ShiftDate VARCHAR(100) NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS TelemedicineQueue (
+            PatientID VARCHAR(100) NOT NULL PRIMARY KEY,
+            FullName VARCHAR(255) NOT NULL,
+            Location VARCHAR(255) NOT NULL,
+            Status VARCHAR(50) NOT NULL,
+            JoinedAt BIGINT NOT NULL,
+            DoctorName VARCHAR(255) NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS Allergies (
+            AllergyID VARCHAR(100) PRIMARY KEY,
+            PatientID VARCHAR(100),
+            AllergyName VARCHAR(255),
+            Severity VARCHAR(50)
+        );
+
+        CREATE TABLE IF NOT EXISTS ChronicConditions (
+            ConditionID VARCHAR(100) PRIMARY KEY,
+            PatientID VARCHAR(100),
+            ConditionName VARCHAR(255),
+            DiagnosedYear INT,
+            Status VARCHAR(50)
+        );
+
+        CREATE TABLE IF NOT EXISTS Consultations (
+            ConsultationID VARCHAR(100) PRIMARY KEY,
+            PatientID VARCHAR(100),
+            Date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            CIE10Code VARCHAR(50),
+            DiagnosisTitle VARCHAR(255),
+            Notes TEXT,
+            CreatedBy VARCHAR(255)
+        );
+
+        CREATE TABLE IF NOT EXISTS Prescriptions (
+            PrescriptionID VARCHAR(100) PRIMARY KEY,
+            ConsultationID VARCHAR(100),
+            MedicationName VARCHAR(255),
+            Dosage VARCHAR(255),
+            Duration VARCHAR(255)
+        );
+
+        CREATE TABLE IF NOT EXISTS MedicalFiles (
+            FileID VARCHAR(100) PRIMARY KEY,
+            PatientID VARCHAR(100),
+            FileName VARCHAR(255),
+            FileSize VARCHAR(50),
+            FileType VARCHAR(50),
+            UploadDate VARCHAR(50),
+            FileURL VARCHAR(500)
+        );
+
+        CREATE TABLE IF NOT EXISTS MedicalCenters (
+            CenterID VARCHAR(100) PRIMARY KEY,
+            Name VARCHAR(255),
+            Location VARCHAR(255),
+            Lat FLOAT,
+            Lng FLOAT,
+            Type VARCHAR(100),
+            ActiveDoctors INT,
+            TotalPatients INT
+        );
+
+        CREATE TABLE IF NOT EXISTS RecentActivities (
+            ActivityID VARCHAR(100) PRIMARY KEY,
+            Type VARCHAR(50),
+            Title VARCHAR(255),
+            Detail VARCHAR(255),
+            Time VARCHAR(50),
+            Center VARCHAR(255)
+        );
       `);
+      console.log("✅ PostgreSQL tables validated/created.");
 
-      // Seeding DoctorShifts table if empty
-      const checkShifts = await pool.request().query("SELECT COUNT(*) as Count FROM DoctorShifts");
-      if (checkShifts.recordset[0].Count === 0) {
+      // Ensure ShiftDate column exists in PostgreSQL (migration)
+      try {
+        await pool.query("ALTER TABLE DoctorShifts ADD COLUMN IF NOT EXISTS ShiftDate VARCHAR(100) NULL");
+      } catch (err: any) {
+        console.error("Migration warning for DoctorShifts.ShiftDate:", err.message);
+      }
+
+      // Check and seed DoctorShifts table if empty
+      const checkShifts = await pool.query("SELECT COUNT(*) as count FROM DoctorShifts");
+      if (Number(checkShifts.rows[0].count) === 0) {
         console.log("🌱 Seeding initial schedules to DoctorShifts table...");
         const initialShifts = [
           { doc: "Dr. Quispe", spec: "Consulta General", day: 1, slot: "08:00 AM" },
@@ -230,30 +335,97 @@ let dbError: string | null = null;
 
         for (const s of initialShifts) {
           const shiftId = `SH_${s.doc.toUpperCase().replace(/[\s\.]+/g, "")}_${s.day}_${s.slot.replace(/[\s:]+/g, "")}`;
-          await pool.request()
-            .input("id", sql.VarChar, shiftId)
-            .input("doc", sql.NVarChar, s.doc)
-            .input("spec", sql.NVarChar, s.spec)
-            .input("day", sql.Int, s.day)
-            .input("slot", sql.VarChar, s.slot)
-            .query("INSERT INTO DoctorShifts (ShiftID, DoctorName, Specialty, DayOfWeek, SlotTime, IsActive) VALUES (@id, @doc, @spec, @day, @slot, 1)");
+          await pool.query(
+            "INSERT INTO DoctorShifts (ShiftID, DoctorName, Specialty, DayOfWeek, SlotTime, IsActive) VALUES ($1, $2, $3, $4, $5, 1)",
+            [shiftId, s.doc, s.spec, s.day, s.slot]
+          );
         }
         console.log("🌱 Successfully seeded DoctorShifts.");
       }
+
+      // Check and seed MedicalCenters if empty
+      const checkMC = await pool.query("SELECT COUNT(*) as count FROM MedicalCenters");
+      if (Number(checkMC.rows[0].count) === 0) {
+        console.log("🌱 Seeding MedicalCenters...");
+        const initialCenters = [
+          { id: "MC_URUBAMBA", name: "Centro de Salud Urubamba", loc: "Urubamba, Cusco", lat: -13.3039, lng: -72.1164, type: "Clinic", docs: 2, pts: 15 },
+          { id: "MC_PISAC", name: "Puesto de Salud Pisac", loc: "Pisac, Cusco", lat: -13.4219, lng: -71.8481, type: "Clinic", docs: 1, pts: 8 },
+          { id: "MC_CALCA", name: "Centro de Salud Calca", loc: "Calca, Cusco", lat: -13.3197, lng: -71.9525, type: "Clinic", docs: 1, pts: 10 },
+          { id: "MC_PAUCARTAMBO", name: "Centro de Salud Paucartambo", loc: "Paucartambo, Cusco", lat: -13.3075, lng: -71.5975, type: "Clinic", docs: 1, pts: 12 }
+        ];
+        for (const c of initialCenters) {
+          await pool.query(
+            'INSERT INTO MedicalCenters (CenterID, Name, Location, Lat, Lng, Type, ActiveDoctors, TotalPatients) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+            [c.id, c.name, c.loc, c.lat, c.lng, c.type, c.docs, c.pts]
+          );
+        }
+        console.log("🌱 Successfully seeded MedicalCenters.");
+      }
+
+      // Check and seed Patients if empty
+      const checkPatients = await pool.query("SELECT COUNT(*) as count FROM Patients");
+      if (Number(checkPatients.rows[0].count) === 0) {
+        console.log("🌱 Seeding patients and structured clinical records...");
+        
+        const patientsData = [
+          { id: "P_JUAN_MAMANI", hist: "#HC-2026-4482", name: "Juan Mamani", status: "Active", age: 64, dni: "45678912", blood: "O+", loc: "Urubamba", gender: "Masculino", phone: "987654321", email: "juan.mamani@email.com" },
+          { id: "P_MARIA_CONDORI", hist: "#HC-2026-9021", name: "María Condori", status: "Active", age: 58, dni: "10293455", blood: "A+", loc: "Pisac", gender: "Femenino", phone: "987654322", email: "maria.condori@email.com" },
+          { id: "P_LUCIA_HUAMAN", hist: "#HC-2026-1184", name: "Lucía Huamán", status: "Active", age: 8, dni: "76543210", blood: "O+", loc: "Calca", gender: "Femenino", phone: "987654323", email: "lucia.huaman@email.com" },
+          { id: "P_NESTOR_YUPANQUI", hist: "#HC-2026-7734", name: "Néstor Yupanqui", status: "Active", age: 45, dni: "23849502", blood: "B+", loc: "Paucartambo", gender: "Masculino", phone: "987654324", email: "nestor.yupanqui@email.com" },
+          { id: "P_ROSA_CHOQUE", hist: "#HC-2026-6632", name: "Rosa Choque", status: "Active", age: 29, dni: "38402938", blood: "O+", loc: "Andahuaylas", gender: "Femenino", phone: "987654325", email: "rosa.choque@email.com" }
+        ];
+
+        for (const p of patientsData) {
+          const passHashed = await bcrypt.hash(p.dni, 10);
+          await pool.query(
+            `INSERT INTO Patients (PatientID, MedicalHistoryNumber, FullName, Status, Age, DNI, BloodType, Location, Email, Phone, Gender, Password, AvatarURL)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+            [p.id, p.hist, p.name, p.status, p.age, p.dni, p.blood, p.loc, p.email, p.phone, p.gender, passHashed, ""]
+          );
+        }
+
+        // Allergies
+        await pool.query("INSERT INTO Allergies (AllergyID, PatientID, AllergyName, Severity) VALUES ($1, $2, $3, $4)", ["A_JUAN_1", "P_JUAN_MAMANI", "Penicilina", "high"]);
+        await pool.query("INSERT INTO Allergies (AllergyID, PatientID, AllergyName, Severity) VALUES ($1, $2, $3, $4)", ["A_LUCIA_1", "P_LUCIA_HUAMAN", "Ácaros del polvo", "medium"]);
+
+        // Chronic Conditions
+        await pool.query("INSERT INTO ChronicConditions (ConditionID, PatientID, ConditionName, DiagnosedYear, Status) VALUES ($1, $2, $3, $4, $5)", ["C_JUAN_1", "P_JUAN_MAMANI", "Hipertensión Arterial Primaria", 2018, "Active"]);
+        await pool.query("INSERT INTO ChronicConditions (ConditionID, PatientID, ConditionName, DiagnosedYear, Status) VALUES ($1, $2, $3, $4, $5)", ["C_MARIA_1", "P_MARIA_CONDORI", "Osteoartritis de rodilla bilateral", 2020, "Active"]);
+        await pool.query("INSERT INTO ChronicConditions (ConditionID, PatientID, ConditionName, DiagnosedYear, Status) VALUES ($1, $2, $3, $4, $5)", ["C_LUCIA_1", "P_LUCIA_HUAMAN", "Asma bronquial intermitente", 2023, "Active"]);
+        await pool.query("INSERT INTO ChronicConditions (ConditionID, PatientID, ConditionName, DiagnosedYear, Status) VALUES ($1, $2, $3, $4, $5)", ["C_NESTOR_1", "P_NESTOR_YUPANQUI", "Diabetes Mellitus Tipo 2", 2021, "Active"]);
+        await pool.query("INSERT INTO ChronicConditions (ConditionID, PatientID, ConditionName, DiagnosedYear, Status) VALUES ($1, $2, $3, $4, $5)", ["C_ROSA_1", "P_ROSA_CHOQUE", "Gestante de 24 semanas", 2026, "Active"]);
+
+        // Appointments
+        await pool.query(
+          `INSERT INTO Appointments (AppointmentID, PatientID, StartTime, EndTime, Status, Type, DoctorName) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          ["APT_NESTOR_1", "P_NESTOR_YUPANQUI", "2026-06-22 09:00 AM", "2026-06-22 09:30 AM", "Scheduled", "Control de Presión", "Enf. Huamán"]
+        );
+        await pool.query(
+          `INSERT INTO Appointments (AppointmentID, PatientID, StartTime, EndTime, Status, Type, DoctorName) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          ["APT_ROSA_1", "P_ROSA_CHOQUE", "2026-06-23 03:00 PM", "2026-06-23 03:30 PM", "Scheduled", "Ginecología", "Dr. Condori"]
+        );
+
+        console.log("🌱 Clinical database seeding completed successfully.");
+      }
+      
+      // Print boot stats
+      const checkPts = await pool.query("SELECT PatientID, FullName, DNI FROM Patients");
+      console.log(`🌱 Current patients in DB: ${checkPts.rows.length}`);
+      checkPts.rows.forEach((p: any) => {
+        console.log(`   - Patient: ${p.FullName ?? p.fullname} (DNI: ${p.DNI ?? p.dni}, ID: ${p.PatientID ?? p.patientid})`);
+      });
+
     } catch (e) {
       console.error("Auto-migrate or Seeding failed:", e);
     }
-  } catch (err: any) {
-    dbError = err.message;
-    console.error("⚠️  SQL Server NOT available:", err.message);
-    console.error("   The app will run with empty data. Start SQL Server and restart to enable persistence.");
-  }
 })();
 
-// Helper to get pool — returns immediately, never hangs
-function getPool(): sql.ConnectionPool {
+// Helper to get pool
+function getPool(): pg.Pool {
   if (!dbPool) {
-    throw new Error(dbError || "Database not connected. Please start SQL Server.");
+    throw new Error(dbError || "Database not connected. Please start PostgreSQL.");
   }
   return dbPool;
 }
@@ -290,31 +462,19 @@ app.post("/api/auth/register", async (req, res) => {
     const pool = getPool();
     
     // Check if exists
-    const checkQuery = "SELECT * FROM Patients WHERE DNI = @DNI";
-    const checkRes = await pool.request().input('DNI', sql.VarChar, dni).query(checkQuery);
-    if (checkRes.recordset.length > 0) return res.status(400).json({ error: "El DNI ya está registrado." });
+    const checkQuery = "SELECT * FROM Patients WHERE DNI = $1";
+    const checkRes = await pool.query(checkQuery, [dni]);
+    if (checkRes.rows.length > 0) return res.status(400).json({ error: "El DNI ya está registrado." });
 
     const newId = `P_${name.toUpperCase().replace(/\s+/g, "_")}_${Math.floor(Math.random() * 1000)}`;
     const histNum = `#HC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const q1 = `INSERT INTO Patients (PatientID, MedicalHistoryNumber, FullName, Status, Age, DNI, BloodType, Location, Email, Phone, Gender, Password)
-              VALUES (@PatientID, @HistNum, @FullName, @Status, @Age, @DNI, @BloodType, @Location, @Email, @Phone, @Gender, @Password)`;
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`;
     
-    await pool.request()
-      .input('PatientID', sql.VarChar, newId)
-      .input('HistNum', sql.VarChar, histNum)
-      .input('FullName', sql.NVarChar, name)
-      .input('Status', sql.VarChar, 'Active')
-      .input('Age', sql.Int, 30) // Default
-      .input('DNI', sql.VarChar, dni)
-      .input('BloodType', sql.VarChar, 'O+') // Default
-      .input('Location', sql.NVarChar, location || 'Cusco')
-      .input('Email', sql.VarChar, '')
-      .input('Phone', sql.VarChar, phone || '')
-      .input('Gender', sql.VarChar, 'Desconocido')
-      .input('Password', sql.NVarChar, hashedPassword)
-      .query(q1);
+    logSql("INSERT", "Patients", q1, [newId, name]);
+    await pool.query(q1, [newId, histNum, name, 'Active', 30, dni, 'O+', location || 'Cusco', '', phone || '', 'Desconocido', hashedPassword]);
 
     const token = jwt.sign({ id: newId, dni, role: 'patient_portal' }, JWT_SECRET, { expiresIn: '1d' });
     res.json({ success: true, token, user: { id: newId, name, dni, role: 'patient_portal' } });
@@ -329,17 +489,20 @@ app.post("/api/auth/login", async (req, res) => {
 
   try {
     const pool = getPool();
-    const q = "SELECT * FROM Patients WHERE DNI = @DNI";
-    const result = await pool.request()
-      .input('DNI', sql.VarChar, dni)
-      .query(q);
+    const q = "SELECT * FROM Patients WHERE DNI = $1";
+    const result = await pool.query(q, [dni]);
 
-    if (result.recordset.length > 0) {
-      const p = result.recordset[0];
-      const match = await bcrypt.compare(password, p.Password || "");
-      if (match || password === p.Password) {
-        const token = jwt.sign({ id: p.PatientID, dni: p.DNI, role: 'patient_portal' }, JWT_SECRET, { expiresIn: '1d' });
-        res.json({ success: true, token, user: { id: p.PatientID, name: p.FullName, dni: p.DNI, role: 'patient_portal' } });
+    if (result.rows.length > 0) {
+      const p = result.rows[0];
+      const pPassword = p.Password ?? p.password ?? "";
+      const pId = p.PatientID ?? p.patientid;
+      const pDni = p.DNI ?? p.dni;
+      const pName = p.FullName ?? p.fullname;
+
+      const match = await bcrypt.compare(password, pPassword);
+      if (match || password === pPassword) {
+        const token = jwt.sign({ id: pId, dni: pDni, role: 'patient_portal' }, JWT_SECRET, { expiresIn: '1d' });
+        res.json({ success: true, token, user: { id: pId, name: pName, dni: pDni, role: 'patient_portal' } });
       } else {
         res.status(401).json({ error: "DNI o contraseña incorrectos." });
       }
@@ -406,25 +569,46 @@ app.post("/api/queue/join", verifyToken, async (req, res) => {
   const joinedAt = Date.now();
   try {
     const pool = getPool();
+    
+    // 1. Upsert into TelemedicineQueue
     const query = `
-      IF EXISTS (SELECT 1 FROM TelemedicineQueue WHERE PatientID = @pid)
-      BEGIN
-          UPDATE TelemedicineQueue 
-          SET Status = 'waiting', JoinedAt = @joined, FullName = @name, Location = @loc, DoctorName = NULL 
-          WHERE PatientID = @pid
-      END
-      ELSE
-      BEGIN
-          INSERT INTO TelemedicineQueue (PatientID, FullName, Location, Status, JoinedAt)
-          VALUES (@pid, @name, @loc, 'waiting', @joined)
-      END
+      INSERT INTO TelemedicineQueue (PatientID, FullName, Location, Status, JoinedAt, DoctorName)
+      VALUES ($1, $2, $3, 'waiting', $4, NULL)
+      ON CONFLICT (PatientID) 
+      DO UPDATE SET Status = 'waiting', JoinedAt = EXCLUDED.JoinedAt, FullName = EXCLUDED.FullName, Location = EXCLUDED.Location, DoctorName = NULL
     `;
-    await pool.request()
-      .input('pid', sql.VarChar, patientId)
-      .input('name', sql.NVarChar, name || 'Paciente')
-      .input('loc', sql.NVarChar, location || 'Zona Rural')
-      .input('joined', sql.BigInt, joinedAt)
-      .query(query);
+    logSql("UPSERT", "TelemedicineQueue", query, [patientId, name, location]);
+    await pool.query(query, [patientId, name || 'Paciente', location || 'Zona Rural', joinedAt]);
+
+    // 2. Clean up any existing non-completed Teleconsulta appointments for this patient
+    await pool.query(
+      "DELETE FROM Appointments WHERE PatientID = $1 AND Type = 'Teleconsulta' AND Status != 'Completed'",
+      [patientId]
+    );
+
+    // 3. Format start time in America/Lima (Peru) timezone (UTC-5)
+    const now = new Date();
+    const limaTime = new Date(now.getTime() - (5 * 60 * 60 * 1000));
+    const year = limaTime.getUTCFullYear();
+    const month = String(limaTime.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(limaTime.getUTCDate()).padStart(2, '0');
+    let hour = limaTime.getUTCHours();
+    const minute = String(limaTime.getUTCMinutes()).padStart(2, '0');
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    hour = hour % 12;
+    hour = hour ? hour : 12; // 0 hour should be 12
+    const hourStr = String(hour).padStart(2, '0');
+    const appointmentStartTime = `${year}-${month}-${day} ${hourStr}:${minute} ${ampm}`;
+
+    // 4. Create the corresponding Appointment
+    const apptId = `APT_TELE_${patientId}_${joinedAt}`;
+    const apptQuery = `
+      INSERT INTO Appointments (AppointmentID, PatientID, StartTime, EndTime, Status, Type, DoctorName)
+      VALUES ($1, $2, $3, $4, 'Scheduled', 'Teleconsulta', 'Dr. Quispe')
+    `;
+    logSql("INSERT", "Appointments", apptQuery, [apptId, patientId]);
+    await pool.query(apptQuery, [apptId, patientId, appointmentStartTime, 'TBD']);
+
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -434,18 +618,16 @@ app.post("/api/queue/join", verifyToken, async (req, res) => {
 app.get("/api/queue/status/:patientId", verifyToken, async (req, res) => {
   try {
     const pool = getPool();
-    const result = await pool.request()
-      .input('pid', sql.VarChar, req.params.patientId)
-      .query("SELECT * FROM TelemedicineQueue WHERE PatientID = @pid");
-    if (result.recordset.length > 0) {
-      const row = result.recordset[0];
+    const result = await pool.query("SELECT * FROM TelemedicineQueue WHERE PatientID = $1", [req.params.patientId]);
+    if (result.rows.length > 0) {
+      const row = result.rows[0];
       res.json({
-        patientId: row.PatientID,
-        name: row.FullName,
-        location: row.Location,
-        status: row.Status,
-        timestamp: Number(row.JoinedAt),
-        doctorName: row.DoctorName || undefined
+        patientId: row.PatientID ?? row.patientid,
+        name: row.FullName ?? row.fullname,
+        location: row.Location ?? row.location,
+        status: row.Status ?? row.status,
+        timestamp: Number(row.JoinedAt ?? row.joinedat),
+        doctorName: row.DoctorName ?? row.doctorname ?? undefined
       });
     } else {
       res.json({ status: 'none' });
@@ -459,10 +641,7 @@ app.post("/api/queue/accept", verifyToken, requireRole(['administrator', 'doctor
   const { patientId, doctorName } = req.body;
   try {
     const pool = getPool();
-    await pool.request()
-      .input('pid', sql.VarChar, patientId)
-      .input('doc', sql.NVarChar, doctorName)
-      .query("UPDATE TelemedicineQueue SET Status = 'accepted', DoctorName = @doc WHERE PatientID = @pid");
+    await pool.query("UPDATE TelemedicineQueue SET Status = 'accepted', DoctorName = $1 WHERE PatientID = $2", [doctorName, patientId]);
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -472,14 +651,14 @@ app.post("/api/queue/accept", verifyToken, requireRole(['administrator', 'doctor
 app.get("/api/queue", verifyToken, requireRole(['administrator', 'doctor']), async (req, res) => {
   try {
     const pool = getPool();
-    const result = await pool.request().query("SELECT * FROM TelemedicineQueue WHERE Status = 'waiting' ORDER BY JoinedAt ASC");
-    const queue = result.recordset.map(row => ({
-      patientId: row.PatientID,
-      name: row.FullName,
-      location: row.Location,
-      status: row.Status,
-      timestamp: Number(row.JoinedAt),
-      doctorName: row.DoctorName || undefined
+    const result = await pool.query("SELECT * FROM TelemedicineQueue WHERE Status = 'waiting' ORDER BY JoinedAt ASC");
+    const queue = result.rows.map(row => ({
+      patientId: row.PatientID ?? row.patientid,
+      name: row.FullName ?? row.fullname,
+      location: row.Location ?? row.location,
+      status: row.Status ?? row.status,
+      timestamp: Number(row.JoinedAt ?? row.joinedat),
+      doctorName: row.DoctorName ?? row.doctorname ?? undefined
     }));
     res.json(queue);
   } catch (err: any) {
@@ -491,9 +670,11 @@ app.post("/api/queue/leave", verifyToken, async (req, res) => {
   const { patientId } = req.body;
   try {
     const pool = getPool();
-    await pool.request()
-      .input('pid', sql.VarChar, patientId)
-      .query("DELETE FROM TelemedicineQueue WHERE PatientID = @pid");
+    await pool.query("DELETE FROM TelemedicineQueue WHERE PatientID = $1", [patientId]);
+    await pool.query(
+      "DELETE FROM Appointments WHERE PatientID = $1 AND Type = 'Teleconsulta' AND Status != 'Completed'",
+      [patientId]
+    );
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -503,18 +684,18 @@ app.post("/api/queue/leave", verifyToken, async (req, res) => {
 
 function mapPatient(row: any): Patient {
   return {
-    id: row.PatientID,
-    medicalHistoryNumber: row.MedicalHistoryNumber,
-    name: row.FullName,
-    status: row.Status,
-    age: row.Age,
-    dni: row.DNI,
-    bloodType: row.BloodType,
-    location: row.Location,
-    email: row.Email || "",
-    phone: row.Phone || "",
-    gender: row.Gender || "",
-    avatarUrl: row.AvatarURL || "",
+    id: row.PatientID ?? row.patientid,
+    medicalHistoryNumber: row.MedicalHistoryNumber ?? row.medicalhistorynumber,
+    name: row.FullName ?? row.fullname,
+    status: row.Status ?? row.status,
+    age: row.Age ?? row.age,
+    dni: row.DNI ?? row.dni,
+    bloodType: row.BloodType ?? row.bloodtype,
+    location: row.Location ?? row.location,
+    email: row.Email ?? row.email ?? "",
+    phone: row.Phone ?? row.phone ?? "",
+    gender: row.Gender ?? row.gender ?? "",
+    avatarUrl: row.AvatarURL ?? row.avatarurl ?? "",
     allergies: [],
     chronicConditions: [],
     consultations: [],
@@ -528,9 +709,9 @@ app.get("/api/patients", async (req: any, res) => {
   try {
     const pool = getPool();
     const query = 'SELECT * FROM Patients';
-    logSql("SELECT", "Patients", query, {});
-    const result = await pool.request().query(query);
-    const patients = result.recordset.map(mapPatient);
+    logSql("SELECT", "Patients", query, []);
+    const result = await pool.query(query);
+    const patients = result.rows.map(mapPatient);
     res.json(patients);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -544,39 +725,53 @@ app.get("/api/patients/:id", async (req: any, res) => {
     const pool = getPool();
     const pId = req.params.id;
     
-    const pQuery = 'SELECT * FROM Patients WHERE PatientID = @id';
-    logSql("SELECT", "Patients", pQuery, { "@id": pId });
-    const pRes = await pool.request().input('id', sql.VarChar, pId).query(pQuery);
-    if (pRes.recordset.length === 0) return res.status(404).json({ error: "Patient not found" });
+    const pQuery = 'SELECT * FROM Patients WHERE PatientID = $1';
+    logSql("SELECT", "Patients", pQuery, [pId]);
+    const pRes = await pool.query(pQuery, [pId]);
+    if (pRes.rows.length === 0) return res.status(404).json({ error: "Patient not found" });
     
-    const patient = mapPatient(pRes.recordset[0]);
+    const patient = mapPatient(pRes.rows[0]);
     
-    const algQuery = 'SELECT * FROM Allergies WHERE PatientID = @id';
-    logSql("SELECT", "Allergies", algQuery, { "@id": pId });
-    const algRes = await pool.request().input('id', sql.VarChar, pId).query(algQuery);
-    patient.allergies = algRes.recordset.map(r => ({ id: r.AllergyID, name: r.AllergyName, severity: r.Severity }));
+    const algQuery = 'SELECT * FROM Allergies WHERE PatientID = $1';
+    logSql("SELECT", "Allergies", algQuery, [pId]);
+    const algRes = await pool.query(algQuery, [pId]);
+    patient.allergies = algRes.rows.map(r => ({ id: r.AllergyID ?? r.allergyid, name: r.AllergyName ?? r.allergyname, severity: r.Severity ?? r.severity }));
 
-    const chrQuery = 'SELECT * FROM ChronicConditions WHERE PatientID = @id';
-    const chrRes = await pool.request().input('id', sql.VarChar, pId).query(chrQuery);
-    patient.chronicConditions = chrRes.recordset.map(r => ({ id: r.ConditionID, name: r.ConditionName, diagnosedYear: r.DiagnosedYear, status: r.Status }));
+    const chrQuery = 'SELECT * FROM ChronicConditions WHERE PatientID = $1';
+    const chrRes = await pool.query(chrQuery, [pId]);
+    patient.chronicConditions = chrRes.rows.map(r => ({ id: r.ConditionID ?? r.conditionid, name: r.ConditionName ?? r.conditionname, diagnosedYear: r.DiagnosedYear ?? r.diagnosedyear, status: r.Status ?? r.status }));
 
-    const conQuery = 'SELECT * FROM Consultations WHERE PatientID = @id ORDER BY Date DESC';
-    const conRes = await pool.request().input('id', sql.VarChar, pId).query(conQuery);
-    const consultations = conRes.recordset.map(r => ({
-      id: r.ConsultationID, patientId: r.PatientID, date: r.Date.toISOString(), cie10Code: r.CIE10Code,
-      diagnosisTitle: r.DiagnosisTitle, notes: r.Notes, createdBy: r.CreatedBy, prescriptions: []
-    }));
+    const conQuery = 'SELECT * FROM Consultations WHERE PatientID = $1 ORDER BY Date DESC';
+    const conRes = await pool.query(conQuery, [pId]);
+    const consultations = conRes.rows.map(r => {
+      const dateVal = r.Date ?? r.date;
+      return {
+        id: r.ConsultationID ?? r.consultationid,
+        patientId: r.PatientID ?? r.patientid,
+        date: dateVal instanceof Date ? dateVal.toISOString() : new Date(dateVal).toISOString(),
+        cie10Code: r.CIE10Code ?? r.cie10code,
+        diagnosisTitle: r.DiagnosisTitle ?? r.diagnosistitle,
+        notes: r.Notes ?? r.notes,
+        createdBy: r.CreatedBy ?? r.createdby,
+        prescriptions: []
+      };
+    });
     
     for (let c of consultations) {
-      const presRes = await pool.request().input('id', sql.VarChar, c.id).query('SELECT * FROM Prescriptions WHERE ConsultationID = @id');
-      c.prescriptions = presRes.recordset.map((r: any) => ({ id: r.PrescriptionID, name: r.MedicationName, dosage: r.Dosage, duration: r.Duration }));
+      const presRes = await pool.query('SELECT * FROM Prescriptions WHERE ConsultationID = $1', [c.id]);
+      c.prescriptions = presRes.rows.map((r: any) => ({ id: r.PrescriptionID ?? r.prescriptionid, name: r.MedicationName ?? r.medicationname, dosage: r.Dosage ?? r.dosage, duration: r.Duration ?? r.duration }));
     }
     patient.consultations = consultations as any;
 
-    const fileRes = await pool.request().input('id', sql.VarChar, pId).query('SELECT * FROM MedicalFiles WHERE PatientID = @id');
-    patient.files = fileRes.recordset.map(r => ({
-      id: r.FileID, patientId: r.PatientID, name: r.FileName, size: r.FileSize,
-      type: r.FileType, uploadDate: r.UploadDate, fileUrl: r.FileURL || "/placeholder_temp.jpg"
+    const fileRes = await pool.query('SELECT * FROM MedicalFiles WHERE PatientID = $1', [pId]);
+    patient.files = fileRes.rows.map(r => ({
+      id: r.FileID ?? r.fileid,
+      patientId: r.PatientID ?? r.patientid,
+      name: r.FileName ?? r.filename,
+      size: r.FileSize ?? r.filesize,
+      type: r.FileType ?? r.filetype,
+      uploadDate: r.UploadDate ?? r.uploaddate,
+      fileUrl: r.FileURL ?? r.fileurl ?? "/placeholder_temp.jpg"
     }));
 
     res.json(patient);
@@ -587,41 +782,38 @@ app.get("/api/patients/:id", async (req: any, res) => {
 
 // POST register Patient
 app.post("/api/patients", async (req, res) => {
-  const { name, age, dni, bloodType, location, email, gender, phone } = req.body;
+  const { name, age, dni, bloodType, location, email, gender, phone, password } = req.body;
   if (!name || !dni) return res.status(400).json({ error: "Name and DNI are required." });
-
-  const newId = `P_${name.toUpperCase().replace(/\s+/g, "_")}_${Math.floor(Math.random() * 1000)}`;
-  const histNum = `#HC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 
   try {
     const pool = getPool();
-    const q1 = `INSERT INTO Patients (PatientID, MedicalHistoryNumber, FullName, Status, Age, DNI, BloodType, Location, Email, Phone, Gender)
-              VALUES (@PatientID, @HistNum, @FullName, @Status, @Age, @DNI, @BloodType, @Location, @Email, @Phone, @Gender)`;
     
-    logSql("INSERT", "Patients", q1, { "@PatientID": newId, "@FullName": name });
+    // Check if DNI already exists
+    const checkQuery = "SELECT * FROM Patients WHERE DNI = $1";
+    const checkRes = await pool.query(checkQuery, [dni]);
+    if (checkRes.rows.length > 0) {
+      return res.status(400).json({ error: "El DNI ya está registrado." });
+    }
+
+    const newId = `P_${name.toUpperCase().replace(/\s+/g, "_")}_${Math.floor(Math.random() * 1000)}`;
+    const histNum = `#HC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    const passToHash = password || dni;
+    const hashedPassword = await bcrypt.hash(passToHash, 10);
+
+    const q1 = `INSERT INTO Patients (PatientID, MedicalHistoryNumber, FullName, Status, Age, DNI, BloodType, Location, Email, Phone, Gender, Password)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`;
     
-    await pool.request()
-      .input('PatientID', sql.VarChar, newId)
-      .input('HistNum', sql.VarChar, histNum)
-      .input('FullName', sql.NVarChar, name)
-      .input('Status', sql.VarChar, 'Active')
-      .input('Age', sql.Int, Number(age) || 30)
-      .input('DNI', sql.VarChar, dni)
-      .input('BloodType', sql.VarChar, bloodType || 'O+')
-      .input('Location', sql.NVarChar, location || 'Cusco')
-      .input('Email', sql.VarChar, email || '')
-      .input('Phone', sql.VarChar, phone || '')
-      .input('Gender', sql.VarChar, gender || 'Masculino')
-      .query(q1);
+    logSql("INSERT", "Patients", q1, [newId, name]);
+    
+    await pool.query(q1, [
+      newId, histNum, name, 'Active', Number(age) || 30, dni, bloodType || 'O+', 
+      location || 'Cusco', email || '', phone || '', gender || 'Masculino', hashedPassword
+    ]);
               
     const actId = `ACT_${Math.floor(1000 + Math.random() * 9000)}`;
     const q2 = `INSERT INTO RecentActivities (ActivityID, Type, Title, Detail, Time, Center) 
-              VALUES (@ActID, 'registration', @Title, 'registered as a new patient.', 'Just now', @Center)`;
-    await pool.request()
-      .input('ActID', sql.VarChar, actId)
-      .input('Title', sql.NVarChar, name)
-      .input('Center', sql.NVarChar, `${location || "Cusco"} Clinic`)
-      .query(q2);
+              VALUES ($1, 'registration', $2, 'registered as a new patient.', 'Just now', $3)`;
+    await pool.query(q2, [actId, name, `${location || "Cusco"} Clinic`]);
 
     res.json({ id: newId, name, dni, status: 'Active' });
   } catch (err: any) {
@@ -637,51 +829,46 @@ app.post("/api/patients/:id/consultations", requireRole(['administrator', 'docto
 
   try {
     const pool = getPool();
-    const transaction = new sql.Transaction(pool);
-    await transaction.begin();
-
+    const client = await pool.connect();
+    
     try {
-      const q1 = `INSERT INTO Consultations (ConsultationID, PatientID, Date, CIE10Code, DiagnosisTitle, Notes, CreatedBy)
-                VALUES (@ConsID, @PatientID, GETDATE(), @CIE10, @DiagTitle, @Notes, 'Dr. Quispe')`;
-      logSql("INSERT", "Consultations", q1, { "@ConsID": consId, "@PatientID": pId });
+      await client.query('BEGIN');
 
-      await transaction.request()
-        .input('ConsID', sql.VarChar, consId)
-        .input('PatientID', sql.VarChar, pId)
-        .input('CIE10', sql.VarChar, cie10Code || "Z00.0")
-        .input('DiagTitle', sql.NVarChar, diagnosisTitle || "General examination")
-        .input('Notes', sql.NVarChar, notes || "")
-        .query(q1);
+      const q1 = `INSERT INTO Consultations (ConsultationID, PatientID, Date, CIE10Code, DiagnosisTitle, Notes, CreatedBy)
+                VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, 'Dr. Quispe')`;
+      logSql("INSERT", "Consultations", q1, [consId, pId]);
+
+      await client.query(q1, [consId, pId, cie10Code || "Z00.0", diagnosisTitle || "General examination", notes || ""]);
 
       for (let p of (prescriptions || [])) {
         const presId = `MED_${Math.floor(10000 + Math.random() * 90000)}`;
-        await transaction.request()
-          .input('PresID', sql.VarChar, presId)
-          .input('ConsID', sql.VarChar, consId)
-          .input('Name', sql.NVarChar, p.name)
-          .input('Dosage', sql.NVarChar, p.dosage || "1 pill/24h")
-          .input('Dur', sql.NVarChar, p.duration || "7 Days")
-          .query(`INSERT INTO Prescriptions (PrescriptionID, ConsultationID, MedicationName, Dosage, Duration)
-                  VALUES (@PresID, @ConsID, @Name, @Dosage, @Dur)`);
+        await client.query(
+          `INSERT INTO Prescriptions (PrescriptionID, ConsultationID, MedicationName, Dosage, Duration) VALUES ($1, $2, $3, $4, $5)`,
+          [presId, consId, p.name, p.dosage || "1 pill/24h", p.duration || "7 Days"]
+        );
       }
       
-      await transaction.request()
-        .input('ActID', sql.VarChar, `ACT_${Math.floor(1000 + Math.random() * 9000)}`)
-        .input('Title', sql.NVarChar, pId)
-        .input('Center', sql.NVarChar, 'Clinic')
-        .query(`INSERT INTO RecentActivities (ActivityID, Type, Title, Detail, Time, Center) 
-                VALUES (@ActID, 'consultation', @Title, 'received treatment.', 'Just now', @Center)`);
+      const actId = `ACT_${Math.floor(1000 + Math.random() * 9000)}`;
+      await client.query(
+        `INSERT INTO RecentActivities (ActivityID, Type, Title, Detail, Time, Center) VALUES ($1, 'consultation', $2, 'received treatment.', 'Just now', $3)`,
+        [actId, pId, 'Clinic']
+      );
 
-      // Close the medical appointment (only the first/oldest pending one)
-      await transaction.request()
-        .input('PID', sql.VarChar, pId)
-        .query(`UPDATE TOP (1) Appointments SET Status = 'Completed' WHERE PatientID = @PID AND Status != 'Completed'`);
+      // Close the medical appointment (only the oldest pending one)
+      await client.query(
+        `UPDATE Appointments SET Status = 'Completed' WHERE AppointmentID IN (
+          SELECT AppointmentID FROM Appointments WHERE PatientID = $1 AND Status != 'Completed' ORDER BY StartTime ASC LIMIT 1
+        )`,
+        [pId]
+      );
 
-      await transaction.commit();
+      await client.query('COMMIT');
       res.json({ id: consId });
     } catch (err) {
-      await transaction.rollback();
+      await client.query('ROLLBACK');
       throw err;
+    } finally {
+      client.release();
     }
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -697,15 +884,10 @@ app.post("/api/patients/:id/allergies", requireRole(['administrator', 'doctor'])
   try {
     const pool = getPool();
     const aId = `A_${Math.floor(10000 + Math.random() * 90000)}`;
-    const q = `INSERT INTO Allergies (AllergyID, PatientID, AllergyName, Severity) VALUES (@AllergyID, @PatientID, @Name, @Sev)`;
-    logSql("INSERT", "Allergies", q, {"@AllergyID": aId});
+    const q = `INSERT INTO Allergies (AllergyID, PatientID, AllergyName, Severity) VALUES ($1, $2, $3, $4)`;
+    logSql("INSERT", "Allergies", q, [aId]);
     
-    await pool.request()
-      .input('AllergyID', sql.VarChar, aId)
-      .input('PatientID', sql.VarChar, pId)
-      .input('Name', sql.NVarChar, name)
-      .input('Sev', sql.VarChar, severity || "low")
-      .query(q);
+    await pool.query(q, [aId, pId, name, severity || "low"]);
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -721,16 +903,10 @@ app.post("/api/patients/:id/chronic-conditions", requireRole(['administrator', '
   try {
     const pool = getPool();
     const cId = `C_${Math.floor(10000 + Math.random() * 90000)}`;
-    const q = `INSERT INTO ChronicConditions (ConditionID, PatientID, ConditionName, DiagnosedYear, Status) VALUES (@CID, @PID, @Name, @Year, @Status)`;
-    logSql("INSERT", "ChronicConditions", q, {"@CID": cId});
+    const q = `INSERT INTO ChronicConditions (ConditionID, PatientID, ConditionName, DiagnosedYear, Status) VALUES ($1, $2, $3, $4, $5)`;
+    logSql("INSERT", "ChronicConditions", q, [cId]);
 
-    await pool.request()
-      .input('CID', sql.VarChar, cId)
-      .input('PID', sql.VarChar, pId)
-      .input('Name', sql.NVarChar, name)
-      .input('Year', sql.Int, Number(diagnosedYear) || new Date().getFullYear())
-      .input('Status', sql.NVarChar, status || "Active")
-      .query(q);
+    await pool.query(q, [cId, pId, name, Number(diagnosedYear) || new Date().getFullYear(), status || "Active"]);
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -776,18 +952,13 @@ app.post("/api/patients/:id/files", async (req: any, res) => {
     }
 
     const q = `INSERT INTO MedicalFiles (FileID, PatientID, FileName, FileSize, FileType, UploadDate, FileURL) 
-              VALUES (@FID, @PID, @Name, @Size, @Type, @Date, @FileURL)`;
-    logSql("INSERT", "MedicalFiles", q, {"@FID": fId});
+              VALUES ($1, $2, $3, $4, $5, $6, $7)`;
+    logSql("INSERT", "MedicalFiles", q, [fId]);
 
-    await pool.request()
-      .input('FID', sql.VarChar, fId)
-      .input('PID', sql.VarChar, pId)
-      .input('Name', sql.NVarChar, name)
-      .input('Size', sql.NVarChar, size || "1MB")
-      .input('Type', sql.VarChar, type || "image")
-      .input('Date', sql.NVarChar, new Date().toISOString().split("T")[0])
-      .input('FileURL', sql.NVarChar, fileUrl)
-      .query(q);
+    await pool.query(q, [
+      fId, pId, name, size || "1MB", type || "image", 
+      new Date().toISOString().split("T")[0], fileUrl
+    ]);
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -829,17 +1000,22 @@ app.get("/api/appointments/available-slots", verifyToken, async (req, res) => {
 
   try {
     const pool = getPool();
-    // Parse date ensuring UTC to avoid timezone shift issues
     const parsedDate = new Date(date as string);
     const dayOfWeek = parsedDate.getUTCDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
     console.log(`[Slots DBG] parsedDate=${parsedDate.toISOString()}, dayOfWeek=${dayOfWeek}`);
 
-    // Query DoctorShifts table for shifts of this specialty on this day of week
-    const shiftsRes = await pool.request()
-      .input('specialty', sql.NVarChar, specialty)
-      .input('dayOfWeek', sql.Int, dayOfWeek)
-      .query(`SELECT DoctorName, SlotTime FROM DoctorShifts WHERE Specialty = @specialty AND DayOfWeek = @dayOfWeek AND IsActive = 1`);
-    const activeShifts = shiftsRes.recordset; // { DoctorName, SlotTime }
+    // Query DoctorShifts table for shifts of this specialty on this day of week or specific date
+    const shiftsRes = await pool.query(
+      `SELECT DoctorName, SlotTime FROM DoctorShifts 
+       WHERE Specialty = $1 
+         AND IsActive = 1 
+         AND (
+           (ShiftDate IS NULL AND DayOfWeek = $2)
+           OR ShiftDate = $3
+         )`,
+      [specialty, dayOfWeek, date]
+    );
+    const activeShifts = shiftsRes.rows;
 
     console.log(`[Slots DBG] Active shifts found in DB: ${activeShifts.length}`);
 
@@ -848,16 +1024,60 @@ app.get("/api/appointments/available-slots", verifyToken, async (req, res) => {
       return res.json([]); 
     }
 
+    // Filter out past slots if the requested date is today (America/Lima timezone)
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Lima",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    });
+    const parts = formatter.formatToParts(new Date());
+    const partMap: Record<string, string> = {};
+    parts.forEach(p => { partMap[p.type] = p.value; });
+
+    const todayStr = `${partMap.year}-${partMap.month}-${partMap.day}`;
+    let currentHour = parseInt(partMap.hour, 10);
+    if (currentHour === 24) currentHour = 0;
+    const currentMinute = parseInt(partMap.minute, 10);
+    
+    let activeShiftsFiltered = activeShifts;
+    if (date === todayStr) {
+      const parseSlotTime = (timeStr: string) => {
+        const match = timeStr.match(/^(\d{2}):(\d{2})\s*(AM|PM)$/i);
+        if (!match) return { hour: 0, minute: 0 };
+        let hr = parseInt(match[1], 10);
+        const min = parseInt(match[2], 10);
+        const ampm = match[3].toUpperCase();
+        if (ampm === "PM" && hr < 12) hr += 12;
+        if (ampm === "AM" && hr === 12) hr = 0;
+        return { hour: hr, minute: min };
+      };
+
+      activeShiftsFiltered = activeShifts.filter(shift => {
+        const slotTime = shift.SlotTime ?? shift.slottime;
+        if (!slotTime) return false;
+        const slotVal = parseSlotTime(slotTime);
+        if (slotVal.hour < currentHour || (slotVal.hour === currentHour && slotVal.minute <= currentMinute)) {
+          return false;
+        }
+        return true;
+      });
+    }
+
     // Get all scheduled appointments for that date pattern
     const datePattern = `${date}%`;
-    const qCheck = `SELECT DoctorName, StartTime FROM Appointments WHERE StartTime LIKE @pattern AND Status != 'Cancelled'`;
-    const checkRes = await pool.request().input('pattern', sql.VarChar, datePattern).query(qCheck);
+    const qCheck = `SELECT DoctorName, StartTime FROM Appointments WHERE StartTime LIKE $1 AND Status != 'Cancelled'`;
+    const checkRes = await pool.query(qCheck, [datePattern]);
     
     // Structure existing appointments: { "DoctorName": ["10:00 AM", ...] }
     const busySlots: Record<string, string[]> = {};
-    checkRes.recordset.forEach(r => {
-      const doc = r.DoctorName;
-      const timeParts = r.StartTime.split(" ");
+    checkRes.rows.forEach(r => {
+      const doc = r.DoctorName ?? r.doctorname;
+      const startTimeVal = r.StartTime ?? r.starttime;
+      const timeParts = startTimeVal.split(" ");
       const timeStr = timeParts.slice(1).join(" ");
       
       if (!busySlots[doc]) busySlots[doc] = [];
@@ -866,10 +1086,12 @@ app.get("/api/appointments/available-slots", verifyToken, async (req, res) => {
 
     // Calculate free slots across all active doctor shifts
     const freeSlotsSet = new Set<string>();
-    activeShifts.forEach(shift => {
-      const docBusy = busySlots[shift.DoctorName] || [];
-      if (!docBusy.includes(shift.SlotTime)) {
-        freeSlotsSet.add(shift.SlotTime);
+    activeShiftsFiltered.forEach(shift => {
+      const docName = shift.DoctorName ?? shift.doctorname;
+      const slotTime = shift.SlotTime ?? shift.slottime;
+      const docBusy = busySlots[docName] || [];
+      if (!docBusy.includes(slotTime)) {
+        freeSlotsSet.add(slotTime);
       }
     });
 
@@ -890,36 +1112,43 @@ app.get("/api/appointments/available-slots", verifyToken, async (req, res) => {
 app.get("/api/admin/shifts", verifyToken, async (req: any, res) => {
   try {
     const pool = getPool();
-    const result = await pool.request().query("SELECT * FROM DoctorShifts ORDER BY DoctorName, DayOfWeek, SlotTime");
-    res.json(result.recordset);
+    const result = await pool.query("SELECT * FROM DoctorShifts ORDER BY DoctorName, DayOfWeek, SlotTime");
+    const shifts = result.rows.map(r => ({
+      ShiftID: r.ShiftID ?? r.shiftid,
+      DoctorName: r.DoctorName ?? r.doctorname,
+      Specialty: r.Specialty ?? r.specialty,
+      DayOfWeek: r.DayOfWeek ?? r.dayofweek,
+      SlotTime: r.SlotTime ?? r.slottime,
+      IsActive: r.IsActive ?? r.isactive,
+      ShiftDate: r.ShiftDate ?? r.shiftdate ?? null
+    }));
+    res.json(shifts);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
 app.post("/api/admin/shifts", verifyToken, requireRole(['administrator']), async (req: any, res) => {
-  const { doctorName, specialty, dayOfWeek, slotTime } = req.body;
+  const { doctorName, specialty, dayOfWeek, slotTime, shiftDate } = req.body;
   if (!doctorName || !specialty || dayOfWeek === undefined || !slotTime) {
     return res.status(400).json({ error: "DoctorName, Specialty, DayOfWeek and SlotTime are required." });
   }
   try {
     const pool = getPool();
-    const shiftId = `SH_${doctorName.toUpperCase().replace(/[\s\.]+/g, "")}_${dayOfWeek}_${slotTime.replace(/[\s:]+/g, "")}`;
+    const dateSuffix = shiftDate ? shiftDate.replace(/-/g, "") : dayOfWeek;
+    const shiftId = `SH_${doctorName.toUpperCase().replace(/[\s\.]+/g, "")}_${dateSuffix}_${slotTime.replace(/[\s:]+/g, "")}`;
     
     // Check if exists
-    const checkQuery = "SELECT * FROM DoctorShifts WHERE ShiftID = @id";
-    const checkRes = await pool.request().input('id', sql.VarChar, shiftId).query(checkQuery);
-    if (checkRes.recordset.length > 0) {
+    const checkQuery = "SELECT * FROM DoctorShifts WHERE ShiftID = $1";
+    const checkRes = await pool.query(checkQuery, [shiftId]);
+    if (checkRes.rows.length > 0) {
       return res.status(400).json({ error: "Este turno ya existe." });
     }
 
-    await pool.request()
-      .input("id", sql.VarChar, shiftId)
-      .input("doc", sql.NVarChar, doctorName)
-      .input("spec", sql.NVarChar, specialty)
-      .input("day", sql.Int, Number(dayOfWeek))
-      .input("slot", sql.VarChar, slotTime)
-      .query("INSERT INTO DoctorShifts (ShiftID, DoctorName, Specialty, DayOfWeek, SlotTime, IsActive) VALUES (@id, @doc, @spec, @day, @slot, 1)");
+    await pool.query(
+      "INSERT INTO DoctorShifts (ShiftID, DoctorName, Specialty, DayOfWeek, SlotTime, IsActive, ShiftDate) VALUES ($1, $2, $3, $4, $5, 1, $6)",
+      [shiftId, doctorName, specialty, Number(dayOfWeek), slotTime, shiftDate || null]
+    );
     
     res.json({ success: true, shiftId });
   } catch (err: any) {
@@ -930,9 +1159,7 @@ app.post("/api/admin/shifts", verifyToken, requireRole(['administrator']), async
 app.delete("/api/admin/shifts/:id", verifyToken, requireRole(['administrator']), async (req: any, res) => {
   try {
     const pool = getPool();
-    await pool.request()
-      .input("id", sql.VarChar, req.params.id)
-      .query("DELETE FROM DoctorShifts WHERE ShiftID = @id");
+    await pool.query("DELETE FROM DoctorShifts WHERE ShiftID = $1", [req.params.id]);
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -944,21 +1171,26 @@ app.get("/api/appointments", async (req: any, res) => {
   try {
     const pool = getPool();
     let query = 'SELECT * FROM Appointments';
-    const request = pool.request();
+    let params: any[] = [];
 
     if (req.user?.role === 'patient_portal') {
-      // El paciente solo puede ver sus propias citas
-      query = 'SELECT * FROM Appointments WHERE PatientID = @pid';
-      request.input('pid', sql.VarChar, req.user.id);
-      logSql("SELECT", "Appointments", query, { "@pid": req.user.id });
+      query = 'SELECT * FROM Appointments WHERE PatientID = $1';
+      params.push(req.user.id);
+      logSql("SELECT", "Appointments", query, [req.user.id]);
     } else {
-      logSql("SELECT", "Appointments", query, {});
+      logSql("SELECT", "Appointments", query, []);
     }
 
-    const result = await request.query(query);
-    const appts = result.recordset.map(r => ({
-      id: r.AppointmentID, patientId: r.PatientID, patientName: "Unknown",
-      startTime: r.StartTime, endTime: r.EndTime, status: r.Status, type: r.Type, doctorName: r.DoctorName || "Dr. Quispe"
+    const result = await pool.query(query, params);
+    const appts = result.rows.map(r => ({
+      id: r.AppointmentID ?? r.appointmentid,
+      patientId: r.PatientID ?? r.patientid,
+      patientName: "Unknown",
+      startTime: r.StartTime ?? r.starttime,
+      endTime: r.EndTime ?? r.endtime,
+      status: r.Status ?? r.status,
+      type: r.Type ?? r.type,
+      doctorName: r.DoctorName ?? r.doctorname ?? "Dr. Quispe"
     }));
     res.json(appts);
   } catch (err: any) {
@@ -967,7 +1199,7 @@ app.get("/api/appointments", async (req: any, res) => {
 });
 
 // Track online doctors in memory
-const onlineDoctors = new Set<string>(); // Start empty, will fallback to Dr. Quispe only if empty
+const onlineDoctors = new Set<string>();
 
 app.get("/api/staff/status", verifyToken, (req, res) => {
   res.json({ success: true, online: Array.from(onlineDoctors) });
@@ -978,14 +1210,15 @@ app.get("/api/admin/metrics", verifyToken, requireRole(['administrator']), async
     const pool = getPool();
     const onlineCount = onlineDoctors.size;
 
-    const queueRes = await pool.request().query("SELECT COUNT(*) as Count FROM TelemedicineQueue WHERE Status = 'waiting'");
-    const patientsWaiting = queueRes.recordset[0].Count;
+    const queueRes = await pool.query("SELECT COUNT(*) as count FROM TelemedicineQueue WHERE Status = 'waiting'");
+    const patientsWaiting = Number(queueRes.rows[0].Count ?? queueRes.rows[0].count);
 
     const todayStr = new Date().toISOString().split("T")[0];
-    const apptsRes = await pool.request()
-      .input('today', sql.VarChar, `${todayStr}%`)
-      .query("SELECT COUNT(*) as Count FROM Appointments WHERE StartTime LIKE @today AND Status = 'Completed'");
-    const successfulCalls = apptsRes.recordset[0].Count;
+    const apptsRes = await pool.query(
+      "SELECT COUNT(*) as count FROM Appointments WHERE StartTime LIKE $1 AND Status = 'Completed'",
+      [`${todayStr}%`]
+    );
+    const successfulCalls = Number(apptsRes.rows[0].Count ?? apptsRes.rows[0].count);
 
     const avgWaitTime = patientsWaiting > 0 ? `${4 + patientsWaiting}m ${12 + (patientsWaiting * 3)}s` : "0m 0s";
 
@@ -1010,48 +1243,52 @@ app.post("/api/staff/status", (req, res) => {
   res.json({ success: true, online: Array.from(onlineDoctors) });
 });
 
-// POST appointments
+// POST appointments (with load balancing)
 app.post("/api/appointments", async (req: any, res) => {
   const { patientId, patientName, startTime, endTime, type, status } = req.body;
   if (!patientId || !startTime || !type) {
     return res.status(400).json({ error: "PatientID, StartTime and Type (Specialty) are required." });
   }
 
-  // Expecting startTime in format "YYYY-MM-DD HH:MM AM/PM"
-  // E.g. "2026-06-08 10:00 AM"
   const startParts = startTime.split(" ");
-  const dateStr = startParts[0]; // "2026-06-08"
-  const timeStr = startParts.slice(1).join(" "); // "10:00 AM"
+  const dateStr = startParts[0]; 
+  const timeStr = startParts.slice(1).join(" "); 
 
   try {
     const pool = getPool();
     const parsedDate = new Date(dateStr);
     const dayOfWeek = parsedDate.getUTCDay();
 
-    // Find doctors of this specialty working on this day and hour slot from dynamic DB
-    const shiftsRes = await pool.request()
-      .input('specialty', sql.NVarChar, type)
-      .input('dayOfWeek', sql.Int, dayOfWeek)
-      .input('slotTime', sql.VarChar, timeStr)
-      .query(`SELECT DoctorName FROM DoctorShifts WHERE Specialty = @specialty AND DayOfWeek = @dayOfWeek AND SlotTime = @slotTime AND IsActive = 1`);
+    // Find doctors of this specialty working on this day and hour slot
+    const shiftsRes = await pool.query(
+      `SELECT DoctorName FROM DoctorShifts 
+       WHERE Specialty = $1 
+         AND SlotTime = $3 
+         AND IsActive = 1
+         AND (
+           (ShiftDate IS NULL AND DayOfWeek = $2)
+           OR ShiftDate = $4
+         )`,
+      [type, dayOfWeek, timeStr, dateStr]
+    );
     
-    const candidates = shiftsRes.recordset.map(r => ({ doctorName: r.DoctorName }));
+    const candidates = shiftsRes.rows.map(r => ({ doctorName: r.DoctorName ?? r.doctorname }));
 
     if (candidates.length === 0) {
       return res.status(400).json({ error: `No hay médicos especialistas disponibles de ${type} en el día y hora indicados.` });
     }
 
-    // Check availability in database to prevent conflicts (double-booking)
+    // Check availability
     const busyDocsQuery = `
       SELECT DoctorName 
       FROM Appointments 
-      WHERE StartTime = @start 
+      WHERE StartTime = $1 
         AND Status != 'Cancelled'
     `;
-    const busyRes = await pool.request().input('start', sql.VarChar, startTime).query(busyDocsQuery);
-    const busyDoctors = busyRes.recordset.map(r => r.DoctorName);
+    const busyRes = await pool.query(busyDocsQuery, [startTime]);
+    const busyDoctors = busyRes.rows.map(r => r.DoctorName ?? r.doctorname);
 
-    // Filter candidates to those who are NOT busy at this slot
+    // Filter candidates
     const freeDoctors = candidates.filter(c => !busyDoctors.includes(c.doctorName));
 
     if (freeDoctors.length === 0) {
@@ -1059,13 +1296,15 @@ app.post("/api/appointments", async (req: any, res) => {
     }
 
     // Load balancing: pick the doctor with the least total pending/scheduled appointments
-    const qLoad = `SELECT DoctorName, COUNT(*) as Count FROM Appointments WHERE Status != 'Completed' AND Status != 'Cancelled' GROUP BY DoctorName`;
-    const loadRes = await pool.request().query(qLoad);
+    const qLoad = `SELECT DoctorName, COUNT(*) as count FROM Appointments WHERE Status != 'Completed' AND Status != 'Cancelled' GROUP BY DoctorName`;
+    const loadRes = await pool.query(qLoad);
     const doctorLoad: Record<string, number> = {};
     freeDoctors.forEach(d => doctorLoad[d.doctorName] = 0);
-    loadRes.recordset.forEach(r => {
-      if (doctorLoad[r.DoctorName] !== undefined) {
-        doctorLoad[r.DoctorName] = r.Count;
+    loadRes.rows.forEach(r => {
+      const doc = r.DoctorName ?? r.doctorname;
+      const count = Number(r.Count ?? r.count);
+      if (doctorLoad[doc] !== undefined) {
+        doctorLoad[doc] = count;
       }
     });
 
@@ -1075,19 +1314,13 @@ app.post("/api/appointments", async (req: any, res) => {
 
     const aId = `APT_${Math.floor(1000 + Math.random() * 9000)}`;
     const q = `INSERT INTO Appointments (AppointmentID, PatientID, StartTime, EndTime, Status, Type, DoctorName)
-              VALUES (@AID, @PID, @Start, @End, @Status, @Type, @DocName)`;
+              VALUES ($1, $2, $3, $4, $5, $6, $7)`;
     
-    logSql("INSERT", "Appointments", q, { "@AID": aId, "@DocName": assignedDoctor });
+    logSql("INSERT", "Appointments", q, [aId, assignedDoctor]);
 
-    await pool.request()
-      .input('AID', sql.VarChar, aId)
-      .input('PID', sql.VarChar, patientId)
-      .input('Start', sql.VarChar, startTime)
-      .input('End', sql.VarChar, endTime || "TBD")
-      .input('Status', sql.VarChar, status || "Scheduled")
-      .input('Type', sql.NVarChar, type)
-      .input('DocName', sql.NVarChar, assignedDoctor)
-      .query(q);
+    await pool.query(q, [
+      aId, patientId, startTime, endTime || "TBD", status || "Scheduled", type, assignedDoctor
+    ]);
 
     res.json({ success: true, doctorName: assignedDoctor, appointmentId: aId });
   } catch (err: any) {
@@ -1100,11 +1333,17 @@ app.get("/api/medical-centers", async (req, res) => {
   try {
     const pool = getPool();
     const q = 'SELECT * FROM MedicalCenters';
-    logSql("SELECT", "MedicalCenters", q, {});
-    const result = await pool.request().query(q);
-    const centers = result.recordset.map(r => ({
-      id: r.CenterID, name: r.Name, location: r.Location,
-      lat: r.Lat, lng: r.Lng, type: r.Type, activeDoctors: r.ActiveDoctors, totalPatients: r.TotalPatients
+    logSql("SELECT", "MedicalCenters", q, []);
+    const result = await pool.query(q);
+    const centers = result.rows.map(r => ({
+      id: r.CenterID ?? r.centerid,
+      name: r.Name ?? r.name,
+      location: r.Location ?? r.location,
+      lat: Number(r.Lat ?? r.lat),
+      lng: Number(r.Lng ?? r.lng),
+      type: r.Type ?? r.type,
+      activeDoctors: Number(r.ActiveDoctors ?? r.activedoctors),
+      totalPatients: Number(r.TotalPatients ?? r.totalpatients)
     }));
     res.json(centers);
   } catch (err: any) {
@@ -1116,10 +1355,15 @@ app.get("/api/medical-centers", async (req, res) => {
 app.get("/api/recent-activities", async (req, res) => {
   try {
     const pool = getPool();
-    const q = 'SELECT TOP 10 * FROM RecentActivities ORDER BY Time DESC';
-    const result = await pool.request().query(q);
-    const acts = result.recordset.map(r => ({
-      id: r.ActivityID, type: r.Type, title: r.Title, detail: r.Detail, time: r.Time, center: r.Center
+    const q = 'SELECT * FROM RecentActivities ORDER BY Time DESC LIMIT 10';
+    const result = await pool.query(q);
+    const acts = result.rows.map(r => ({
+      id: r.ActivityID ?? r.activityid,
+      type: r.Type ?? r.type,
+      title: r.Title ?? r.title,
+      detail: r.Detail ?? r.detail,
+      time: r.Time ?? r.time,
+      center: r.Center ?? r.center
     }));
     res.json(acts);
   } catch (err: any) {

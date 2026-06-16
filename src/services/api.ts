@@ -29,8 +29,9 @@ export const api = {
       headers: getHeaders(),
       body: JSON.stringify(data)
     });
-    if (!res.ok) throw new Error("Error registering patient");
-    return res.json();
+    const resData = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(resData.error || "Error registering patient");
+    return resData;
   },
   scheduleAppointment: async (data: any) => {
     const res = await fetch("/api/appointments", {
