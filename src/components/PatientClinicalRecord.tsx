@@ -37,7 +37,7 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
   const [diagnosisTitle, setDiagnosisTitle] = useState("");
   const [clinicalNotes, setClinicalNotes] = useState("");
   const [medications, setMedications] = useState<{ name: string; dosage: string; duration: string }[]>([
-    { name: "Amoxicillin 500mg", dosage: "1 pull / 8h", duration: "7 Days" }
+    { name: "Amoxicilina 500mg", dosage: "1 tableta cada 8 horas", duration: "7 días" }
   ]);
 
   // Dynamic context additions
@@ -109,7 +109,7 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
 
   // Handle adding prescription line
   const addMedicationLine = () => {
-    setMedications([...medications, { name: "", dosage: "1 tab / 8h", duration: "7 Days" }]);
+    setMedications([...medications, { name: "", dosage: "1 tableta cada 8 horas", duration: "7 días" }]);
   };
 
   // Handle removing prescription line
@@ -138,7 +138,8 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
           cie10Code: cie10Code || "Z00.0",
           diagnosisTitle: diagnosisTitle || "Examen médico general",
           notes: clinicalNotes,
-          prescriptions: medications.filter(m => m.name.trim() !== "")
+          prescriptions: medications.filter(m => m.name.trim() !== ""),
+          quechuaSummary: aiTranslatorResult
         })
       });
 
@@ -149,7 +150,7 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
         setCie10Code("");
         setDiagnosisTitle("");
         setCie10Search("");
-        setMedications([{ name: "Amoxicillin 500mg", dosage: "1 pull / 8h", duration: "7 Days" }]);
+        setMedications([{ name: "Amoxicilina 500mg", dosage: "1 tableta cada 8 horas", duration: "7 días" }]);
         setAiTranslatorResult("");
 
         // Refresh EHR in view
@@ -292,9 +293,9 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
   const handlePrintDossier = () => {
     if (!patient) return;
     const originalText = `--------------------------------------------------
-SUMAQ QHALI CLINIC HISTORY SUMMARY DOSSIER
+SUMAQ QHALI - EXPEDIENTE DE HISTORIA CLÍNICA
 Fecha: ${new Date().toLocaleDateString()}
-Red Médica: Cusco Regional Unit
+Red Médica: Red de Salud Cusco
 --------------------------------------------------
 PACIENTE: ${patient.name}
 Expediente: ${patient.medicalHistoryNumber}
@@ -310,11 +311,11 @@ CONDICIONES CRÓNICAS:
 ${patient.chronicConditions.map(c => `- ${c.name} [Desde ${c.diagnosedYear}]`).join("\n") || "Ninguna registrada"}
 
 HISTORIAL CONSULTAS RECUPERADAS:
-${patient.consultations.map(c => `[${c.date.slice(0, 10)}] ${c.cie10Code}: ${c.diagnosisTitle} - Dr. Quispe
+${patient.consultations.map(c => `[${c.date.slice(0, 10)}] ${c.cie10Code}: ${c.diagnosisTitle} - ${c.createdBy || "Dr. Yawar Quispe"}
 Notas: "${c.notes}"
 Receta: ${c.prescriptions.map(m => `${m.name} (${m.dosage})`).join(", ")}`).join("\n\n") || "No hay consultas previas registradas."}
 --------------------------------------------------
-Ethical Precision in Andean Health
+Precisión Ética en Salud Andina
 `;
     const element = document.createElement("a");
     const file = new Blob([originalText], { type: "text/plain" });
@@ -349,7 +350,7 @@ Ethical Precision in Andean Health
   }
 
   return (
-    <div className="flex-grow overflow-y-auto bg-[#F7F9FB] p-4 md:p-10 font-sans">
+    <div className="flex-grow overflow-y-auto beautiful-scrollbar bg-[#F7F9FB] p-4 md:p-10 font-sans">
       <div className="max-w-[1280px] mx-auto flex flex-col gap-6">
         
         {/* Save success notification flag */}
@@ -481,7 +482,7 @@ Ethical Precision in Andean Health
 
                       {/* Floating auto-suggestions container */}
                       {cie10Search && !cie10Code && (
-                        <div className="absolute z-10 w-64 bg-white border border-gray-200 rounded-lg mt-1 shadow-lg p-1 max-h-48 overflow-y-auto">
+                        <div className="absolute z-10 w-64 bg-white border border-gray-200 rounded-lg mt-1 shadow-lg p-1 max-h-48 overflow-y-auto beautiful-scrollbar">
                           {cie10Database
                             .filter(d => d.code.toLowerCase().includes(cie10Search.toLowerCase()) || d.title.toLowerCase().includes(cie10Search.toLowerCase()))
                             .map((d) => (
@@ -597,7 +598,7 @@ Ethical Precision in Andean Health
                               />
                             </div>
                             {m.name.length > 1 && getMedicineSuggestions(m.name).length > 0 && (
-                              <ul className="absolute z-10 left-0 right-0 mt-1 bg-white border border-gray-200 shadow-2xl rounded-lg max-h-48 overflow-y-auto animate-fade-in">
+                              <ul className="absolute z-10 left-0 right-0 mt-1 bg-white border border-gray-200 shadow-2xl rounded-lg max-h-48 overflow-y-auto beautiful-scrollbar animate-fade-in">
                                 {getMedicineSuggestions(m.name).map((sug, iSug) => (
                                   <li 
                                     key={iSug}
@@ -690,7 +691,7 @@ Ethical Precision in Andean Health
                               </div>
                             </div>
                           )}
-                          <p className="text-[10px] text-gray-400 font-sans text-right mt-2">Registrado por: {c.createdBy || "Dr. Quispe"}</p>
+                          <p className="text-[10px] text-gray-400 font-sans text-right mt-2">Registrado por: {c.createdBy || "Dr. Yawar Quispe"}</p>
                         </div>
                       </div>
                     ))}
@@ -761,7 +762,9 @@ Ethical Precision in Andean Health
                         <p className="text-[10px] text-gray-400">Diag. desde: {c.diagnosedYear}</p>
                       </div>
                       <span className="text-[9px] font-bold bg-[#E6E8EA] border border-gray-300 text-gray-600 px-1.5 py-0.5 rounded">
-                        {c.status}
+                        {c.status === "Active" ? (language === "es" ? "Activo" : "Kachkan") : 
+                         c.status === "Diagnosed" ? (language === "es" ? "Diagnosticado" : "Killasqa") :
+                         (c.status === "Managed" || c.status === "Controlled") ? (language === "es" ? "Controlado" : "Allinyasqa") : c.status}
                       </span>
                     </li>
                   ))

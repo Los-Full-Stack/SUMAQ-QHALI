@@ -31,7 +31,9 @@ async function run() {
         
         // Add Password column if it does not exist
         await pool.query("ALTER TABLE Patients ADD COLUMN IF NOT EXISTS Password VARCHAR(255)");
-        console.log("Success: Patients schema verified.");
+        // Add QuechuaSummary column if it does not exist
+        await pool.query("ALTER TABLE Consultations ADD COLUMN IF NOT EXISTS QuechuaSummary TEXT");
+        console.log("Success: Patients and Consultations schemas verified.");
         process.exit(0);
     } catch (err) {
         console.error(err);

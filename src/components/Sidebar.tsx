@@ -32,7 +32,9 @@ export default function Sidebar({
           <img src="/logo.svg" alt="Sumaq Qhali" className="w-6 h-6 object-contain" />
           <div>
             <h1 className="text-lg font-bold font-headline select-none">SUMAQ QHALI</h1>
-            <p className="text-[10px] text-cyan-200 uppercase tracking-widest font-semibold">Bilingual EHR</p>
+            <p className="text-[10px] text-cyan-200 uppercase tracking-widest font-semibold">
+              {language === "es" ? "HCE Bilingüe" : "Iskay simipi HCE"}
+            </p>
           </div>
         </div>
         <button 
@@ -61,7 +63,7 @@ export default function Sidebar({
         </div>
         <div className="font-sans text-white">
           <h4 className="text-sm font-bold truncate">
-            {role === "patient_portal" && portalPatient ? portalPatient.name : (user?.name || "Dr. Quispe")}
+            {role === "patient_portal" && portalPatient ? portalPatient.name : (user?.name || "Dr. Yawar Quispe")}
           </h4>
           <p className="text-[10px] text-cyan-200">
             {role === "patient_portal" ? "Paciente Registrado" : "Director Regional Urubamba"}

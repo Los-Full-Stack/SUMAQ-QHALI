@@ -63,3 +63,18 @@
 .beautiful-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+@keyframes scale-up {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-scale-up {
+  animation: scale-up 0.2s ease-out;
+}

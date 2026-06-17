@@ -29,7 +29,7 @@ export default function BannerLanding({ language, onSetLanguage, onLogin }: Land
     btnInfo: language === "es" ? "Solicitar Información" : "Willaykunata Mañay",
     bentoTitle: language === "es" ? "Precisión Ética para la Salud Rural" : "Sumaq Allin Qhali Kawsaypaq",
     b1Title: language === "es" ? "Atención Bilingüe" : "Iskay Simipi Rimay",
-    b2Title: language === "es" ? "Offline First" : "K'anchay Offline-First",
+    b2Title: language === "es" ? "Primero sin conexión" : "K'anchay (Conexión Resiliente)",
     b3Title: language === "es" ? "Gestión Inteligente" : "Yachay Sapa Rurakuy",
   };
 
@@ -112,7 +112,7 @@ export default function BannerLanding({ language, onSetLanguage, onLogin }: Land
           </div>
           <div>
             <h1 className="text-xl font-extrabold text-slate-800 font-headline">SUMAQ QHALI</h1>
-            <p className="text-[10px] text-gray-500 font-sans tracking-wide uppercase font-bold">Rural Health Unit</p>
+            <p className="text-[10px] text-gray-500 font-sans tracking-wide uppercase font-bold">{language === "es" ? "Unidad de Salud Rural" : "Ayllu Hampiy Wasi"}</p>
           </div>
         </div>
 
@@ -160,13 +160,26 @@ export default function BannerLanding({ language, onSetLanguage, onLogin }: Land
           </div>
 
           <div className="flex-1 relative w-full h-[360px] md:h-[480px] rounded-3xl overflow-hidden shadow-2xl border border-gray-100 group">
-            <img 
-              alt="Medical professional in the Andes" 
-              className="absolute inset-0 w-full h-full object-cover select-none group-hover:scale-105 transition-transform duration-700" 
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuAGrn7eShX_zqKnvoKI3X6lU7a-LFheKfYEtK6RIBqTG7GaIk5uS2cKqoBhjfkHmr9sbbFIPMRFB_LSSoI4sipPwUEm237wwEkbO10FDc81tDhNORCAqc_b1_WRrwPP3Ea_tpKvn4HGQ-bL5Mgzn-kFz8NnjJElf6KDwAUXMNn59DOSM_RUftIenYI5Jr_-OE3c0iztdWNtgOJBOe_LiuvgCfJZ-AL5iSz7NvK64AR-kD-jXLn9kfV4x_z5MIU-qqSAzM7jWMBj2js"
-              referrerPolicy="no-referrer"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent"></div>
+            <div className="absolute inset-0 w-full h-full bg-gradient-to-tr from-slate-900 via-[#026783] to-[#00355F] flex flex-col items-center justify-center p-6 text-center select-none">
+              {/* Graphic element */}
+              <div className="relative w-32 h-32 flex items-center justify-center mb-6">
+                <div className="absolute inset-0 bg-cyan-400/15 rounded-full animate-ping"></div>
+                <div className="absolute inset-2 bg-blue-500/20 rounded-full animate-pulse"></div>
+                <div className="relative w-20 h-20 bg-gradient-to-tr from-cyan-400 to-blue-500 rounded-full flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                  <HeartPulse className="w-10 h-10 text-white" />
+                </div>
+              </div>
+              <h4 className="text-xl font-bold font-headline text-white tracking-wide">Red Andina de Telemedicina</h4>
+              <p className="text-cyan-205 text-xs mt-2 max-w-xs leading-relaxed font-sans opacity-90">
+                Interconectando comunidades rurales del Cusco con personal de salud bilingüe y tecnología avanzada.
+              </p>
+              
+              {/* Decorative SVG Mountain silhouette inside the card */}
+              <svg className="absolute bottom-0 left-0 right-0 w-full h-24 text-[#002844] fill-current" viewBox="0 0 1440 200" preserveAspectRatio="none">
+                <path d="M0,160 L120,130 L240,170 L360,110 L480,180 L600,140 L720,160 L840,110 L960,150 L1080,130 L1200,170 L1320,120 L1440,150 L1440,200 L0,200 Z" opacity="0.5" />
+                <path d="M0,180 L180,150 L360,190 L540,140 L720,180 L900,150 L1080,190 L1260,160 L1440,180 L1440,200 L0,200 Z" />
+              </svg>
+            </div>
           </div>
         </div>
       </section>

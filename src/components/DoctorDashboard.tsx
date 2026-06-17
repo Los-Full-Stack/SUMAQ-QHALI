@@ -2,11 +2,35 @@ import React, { useState, useEffect } from "react";
 import { Patient, Appointment, RecentActivity, Language } from "../types";
 import { useAuthStore } from "../store/useAuthStore";
 import { 
-  Users, AlertCircle, Video, Calendar, Search, ChevronLeft, ChevronRight, Clock, FolderLock, FileSpreadsheet, Package, Activity, Plus, Hospital, LogOut, HelpCircle, TrendingUp, Award, MapPin, Globe, Signal
+  Users, AlertCircle, Video, Calendar, Search, ChevronLeft, ChevronRight, Clock, FolderLock, FileSpreadsheet, Package, Activity, Plus, Hospital, LogOut, HelpCircle, TrendingUp, Award, MapPin, Globe, Signal, Trash2, Pill
 } from "lucide-react";
 import JitsiCall from "./JitsiCall";
 import PatientClinicalRecord from "./PatientClinicalRecord";
 import { api } from "../services/api";
+
+const translateApptType = (type: string, lang: "es" | "qu") => {
+  if (!type) return lang === "es" ? "Consulta General" : "Hampiy Rimana";
+  const lower = type.toLowerCase();
+  if (lower.includes("routine")) {
+    return lang === "es" ? "Chequeo de Rutina" : "Kutipaq Qhaway";
+  }
+  if (lower.includes("follow-up") || lower.includes("control")) {
+    return lang === "es" ? "Control / Seguimiento" : "Qatiqnin Qhaway";
+  }
+  if (lower.includes("pediatric") || lower.includes("pediatria")) {
+    return lang === "es" ? "Consulta Pediátrica" : "Wawa Hampiy";
+  }
+  if (lower.includes("gynaecology") || lower.includes("gynecology") || lower.includes("ginecologia")) {
+    return lang === "es" ? "Ginecología" : "Warmikunap Hampiy";
+  }
+  if (lower.includes("pressure") || lower.includes("presion")) {
+    return lang === "es" ? "Control de Presión" : "Ñit'iy Qhaway";
+  }
+  if (lower.includes("obstetricia")) {
+    return lang === "es" ? "Obstetricia" : "Sullu Qhaway";
+  }
+  return type;
+};
 
 interface DashboardProps {
   language: Language;
@@ -28,21 +52,50 @@ export default function DoctorDashboard({
   recentActivities,
   onSelectPatient,
   onOpenRegisterModal,
+  onLogout,
   onSetLanguage,
   onRefresh
 }: DashboardProps) {
   const [searchTerm, setSearchTerm] = useState("");
+  const user = useAuthStore((state) => state.user);
+  const setIsCallActive = useAuthStore((state) => state.setIsCallActive);
+  const setLogout = useAuthStore((state) => state.setLogout);
   
   // Telemedicine state
   const [isTelemedicineActive, setIsTelemedicineActive] = useState(false);
   const [activeCallPatientId, setActiveCallPatientId] = useState<string | null>(null);
   const [activeCallRoom, setActiveCallRoom] = useState<string | null>(null);
   const [showFullRecord, setShowFullRecord] = useState(false);
+  const [activeMobileTab, setActiveMobileTab] = useState<"video" | "record">("video");
 
   // Quick Record state
   const [quickNotes, setQuickNotes] = useState("");
-  const [quickPrescription, setQuickPrescription] = useState("");
+  const [quickPrescriptions, setQuickPrescriptions] = useState<Array<{ name: string; dosage: string; duration: string }>>([
+    { name: "", dosage: "", duration: "" }
+  ]);
   const [isSavingRecord, setIsSavingRecord] = useState(false);
+  const [medicinesCatalog, setMedicinesCatalog] = useState<Array<{ id: string; name: string; category: string }>>([]);
+  const [focusedPrescIdx, setFocusedPrescIdx] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchMedicines = async () => {
+      try {
+        const token = localStorage.getItem("sumaq_token");
+        const res = await fetch("/api/medicines", {
+          headers: {
+            ...(token ? { "Authorization": `Bearer ${token}` } : {})
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setMedicinesCatalog(data);
+        }
+      } catch (err) {
+        console.error("Error loading medicines catalog:", err);
+      }
+    };
+    fetchMedicines();
+  }, []);
 
   const [queuePatients, setQueuePatients] = useState<any[]>([]);
   const [queueError, setQueueError] = useState<string | null>(null);
@@ -79,11 +132,11 @@ export default function DoctorDashboard({
 
   const handleStartCall = async (pId: string) => {
     try {
-      await api.acceptQueue(pId, useAuthStore.getState().user?.name || 'Dr. Quispe');
+      await api.acceptQueue(pId, user?.name || 'Dr. Yawar Quispe');
       setActiveCallPatientId(pId);
       const safeId = pId.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
       setActiveCallRoom(`sqsala${safeId}`);
-      useAuthStore.getState().setIsCallActive(true);
+      setIsCallActive(true);
     } catch (e) {
       console.error(e);
       alert("Error aceptando la llamada.");
@@ -94,16 +147,16 @@ export default function DoctorDashboard({
     setActiveCallPatientId(pId);
     const safeId = apptId.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
     setActiveCallRoom(`sqsalaappt${safeId}`);
-    useAuthStore.getState().setIsCallActive(true);
+    setIsCallActive(true);
   };
 
   const handleEndCall = () => {
     setActiveCallRoom(null);
     setActiveCallPatientId(null);
     setQuickNotes("");
-    setQuickPrescription("");
+    setQuickPrescriptions([{ name: "", dosage: "", duration: "" }]);
     setShowFullRecord(false);
-    useAuthStore.getState().setIsCallActive(false);
+    setIsCallActive(false);
   };
 
   const handleSaveQuickRecord = async () => {
@@ -122,7 +175,13 @@ export default function DoctorDashboard({
           cie10Code: "Z00.0",
           diagnosisTitle: "Consulta por Telemedicina",
           notes: quickNotes,
-          prescriptions: quickPrescription.trim() ? [{ name: quickPrescription, dosage: "Según indicaciones", duration: "Variable" }] : []
+          prescriptions: quickPrescriptions
+            .filter(p => p.name.trim() !== "")
+            .map(p => ({
+              name: p.name.trim(),
+              dosage: p.dosage.trim() || "Según indicaciones",
+              duration: p.duration.trim() || "Variable"
+            }))
         })
       });
       
@@ -152,7 +211,7 @@ export default function DoctorDashboard({
     p.dni.includes(searchTerm)
   );
 
-  const activeDoc = useAuthStore.getState().user?.name || "Dr. Quispe";
+  const activeDoc = user?.name || "Dr. Yawar Quispe";
   const doctorAppointments = appointments.filter(a => 
     a.doctorName?.toLowerCase() === activeDoc.toLowerCase()
   );
@@ -239,7 +298,7 @@ export default function DoctorDashboard({
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-1">
             <div className="text-center md:text-left flex-1">
               <h2 className="text-2xl md:text-3xl font-extrabold text-white font-headline tracking-tight drop-shadow-sm">
-                {language === "es" ? `Buen día, ${useAuthStore.getState().user?.name || 'Dr. Quispe'}` : `Allillanchu t'uta, ${useAuthStore.getState().user?.name || 'Dr. Quispe'}`}
+                {language === "es" ? `Buen día, ${user?.name || 'Dr. Yawar Quispe'}` : `Allillanchu t'uta, ${user?.name || 'Dr. Yawar Quispe'}`}
               </h2>
               <p className="text-cyan-100/90 font-medium mt-1 text-xs md:text-sm">
                 Centro de Telemedicina y Triage Rural
@@ -262,7 +321,6 @@ export default function DoctorDashboard({
               </button>
               <button 
                 onClick={async () => {
-                  const user = useAuthStore.getState().user;
                   if (user && user.name) {
                     try {
                       const token = localStorage.getItem("sumaq_token");
@@ -278,7 +336,7 @@ export default function DoctorDashboard({
                       console.error("Failed to notify offline status", e);
                     }
                   }
-                  useAuthStore.getState().setLogout();
+                  setLogout();
                   window.location.reload();
                 }}
                 className="bg-rose-500/20 hover:bg-rose-500 text-white border border-rose-500/30 backdrop-blur-md px-3.5 py-2 rounded-2xl text-xs font-bold shadow-md transition-all duration-300 hover:scale-105 hover:-translate-y-0.5 flex items-center gap-2"
@@ -297,25 +355,61 @@ export default function DoctorDashboard({
         </div>
 
         {activeCallRoom ? (
-          /* SPLIT VIEW FOR ACTIVE CALL */
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[85vh]">
-            <div className="lg:col-span-2 flex flex-col bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+          /* SPLIT VIEW FOR ACTIVE CALL WITH MOBILE TABS */
+          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-3 lg:gap-6 lg:h-[85vh]">
+            
+            {/* Mobile Tab Selector */}
+            <div className="flex lg:hidden bg-slate-100 p-1 rounded-2xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setActiveMobileTab("video")}
+                className={`flex-1 py-3 text-xs font-bold rounded-xl transition-all cursor-pointer text-center ${
+                  activeMobileTab === "video"
+                    ? "bg-white text-slate-800 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                <span className="flex items-center justify-center gap-1.5">
+                  <Video className="w-4 h-4" /> Videollamada
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveMobileTab("record")}
+                className={`flex-1 py-3 text-xs font-bold rounded-xl transition-all cursor-pointer text-center ${
+                  activeMobileTab === "record"
+                    ? "bg-white text-slate-800 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                <span className="flex items-center justify-center gap-1.5">
+                  <FolderLock className="w-4 h-4" /> Ficha & Receta
+                </span>
+              </button>
+            </div>
+
+            {/* Video Call Column */}
+            <div className={`lg:col-span-2 flex flex-col bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden h-[60vh] lg:h-full ${
+              activeMobileTab === "video" ? "flex" : "hidden lg:flex"
+            }`}>
               <div className="p-4 bg-slate-900 text-white flex justify-between items-center">
                 <span className="font-bold flex items-center gap-2"><Video className="text-blue-400 w-5 h-5"/> Videollamada en Curso</span>
               </div>
-              <div className="flex-1">
-                <JitsiCall roomName={activeCallRoom} displayName={useAuthStore.getState().user?.name || 'Dr. Quispe'} onEndCall={handleEndCall} />
+              <div className="flex-1 min-h-0">
+                <JitsiCall roomName={activeCallRoom} displayName={user?.name || 'Dr. Yawar Quispe'} onEndCall={handleEndCall} />
               </div>
             </div>
             
-            <div className="flex flex-col bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden relative">
+            <div className={`flex flex-col bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden relative min-h-[500px] lg:h-full ${
+              activeMobileTab === "record" ? "flex" : "hidden lg:flex"
+            }`}>
               <div className="p-4 bg-blue-50 border-b border-blue-100 flex justify-between items-center">
                 <span className="font-bold text-blue-800 flex items-center gap-2"><FolderLock className="w-5 h-5"/> Historial Clínico Rápido</span>
                 <button onClick={() => setShowFullRecord(true)} className="text-xs bg-white border border-blue-200 px-3 py-1.5 rounded-lg text-blue-700 font-bold hover:bg-blue-100 shadow-sm transition-colors">
                   Ver Expediente Completo
                 </button>
               </div>
-              <div className="p-6 flex-1 overflow-y-auto font-sans text-sm">
+              <div className="p-6 flex-1 overflow-y-auto beautiful-scrollbar font-sans text-sm">
                 <p className="text-slate-500 mb-6 font-medium">Paciente ID: <span className="font-bold text-slate-700">{activeCallPatientId}</span></p>
                 
                 <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Notas de la Consulta (Tiempo Real)</label>
@@ -326,16 +420,126 @@ export default function DoctorDashboard({
                   placeholder="Escribe aquí los síntomas, diagnóstico..."
                 ></textarea>
                 
-                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2 justify-between">
-                  <span>Prescripción Médica</span>
-                  <span className="text-blue-600 flex items-center gap-1"><Award className="w-3 h-3"/> Traducción IA Automática</span>
-                </label>
-                <textarea 
-                  value={quickPrescription}
-                  onChange={(e) => setQuickPrescription(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 min-h-[100px] focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-inner" 
-                  placeholder="Ej: Paracetamol 500mg cada 8 horas. Reposo absoluto."
-                ></textarea>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    Prescripción Médica (Medicamentos)
+                  </label>
+                  <span className="text-blue-600 text-[11px] font-bold flex items-center gap-1">
+                    <Award className="w-3.5 h-3.5"/> Traducción IA Automática
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  {quickPrescriptions.map((presc, idx) => (
+                    <div key={idx} className="bg-slate-50 border border-slate-200 rounded-2xl p-3 flex flex-col gap-2 relative group shadow-sm hover:border-slate-300 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 bg-blue-100 text-blue-700 text-xs font-bold rounded-full flex items-center justify-center shrink-0">
+                          {idx + 1}
+                        </span>
+                        <div className="relative flex-1">
+                          <input
+                            type="text"
+                            placeholder="Nombre del medicamento (ej: Paracetamol 500mg)"
+                            value={presc.name}
+                            onFocus={() => setFocusedPrescIdx(idx)}
+                            onBlur={() => setTimeout(() => setFocusedPrescIdx(null), 250)}
+                            onChange={(e) => {
+                              const newPrescs = [...quickPrescriptions];
+                              newPrescs[idx].name = e.target.value;
+                              setQuickPrescriptions(newPrescs);
+                            }}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                          />
+                          
+                          {/* Sugerencias dropdown */}
+                          {focusedPrescIdx === idx && (
+                            <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 text-xs py-1">
+                              {medicinesCatalog.filter(med => 
+                                med.name.toLowerCase().includes(presc.name.toLowerCase())
+                              ).length === 0 ? (
+                                <div className="px-3 py-2 text-slate-400 italic">
+                                  No se encontraron coincidencias. Se guardará como texto libre.
+                                </div>
+                              ) : (
+                                medicinesCatalog
+                                  .filter(med => med.name.toLowerCase().includes(presc.name.toLowerCase()))
+                                  .map((med) => (
+                                    <button
+                                      key={med.id}
+                                      type="button"
+                                      onMouseDown={() => {
+                                        const newPrescs = [...quickPrescriptions];
+                                        newPrescs[idx].name = med.name;
+                                        setQuickPrescriptions(newPrescs);
+                                        setFocusedPrescIdx(null);
+                                      }}
+                                      className="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center justify-between transition-colors border-b border-slate-100 last:border-0"
+                                    >
+                                      <span className="font-medium text-slate-700">{med.name}</span>
+                                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                                        med.category === "Tradicional" 
+                                          ? "bg-emerald-50 text-emerald-700 border border-emerald-100" 
+                                          : "bg-blue-50 text-blue-700 border border-blue-100"
+                                      }`}>
+                                        {med.category}
+                                      </span>
+                                    </button>
+                                  ))
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2 pl-7">
+                        <input
+                          type="text"
+                          placeholder="Dosis (ej: 1 tab cada 8h)"
+                          value={presc.dosage}
+                          onChange={(e) => {
+                            const newPrescs = [...quickPrescriptions];
+                            newPrescs[idx].dosage = e.target.value;
+                            setQuickPrescriptions(newPrescs);
+                          }}
+                          className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Duración (ej: 7 días)"
+                          value={presc.duration}
+                          onChange={(e) => {
+                            const newPrescs = [...quickPrescriptions];
+                            newPrescs[idx].duration = e.target.value;
+                            setQuickPrescriptions(newPrescs);
+                          }}
+                          className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        />
+                      </div>
+
+                      {quickPrescriptions.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newPrescs = quickPrescriptions.filter((_, i) => i !== idx);
+                            setQuickPrescriptions(newPrescs);
+                          }}
+                          className="absolute top-2 right-2 text-slate-400 hover:text-red-500 p-1 rounded-md hover:bg-slate-100 transition-colors"
+                          title="Eliminar medicamento"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setQuickPrescriptions([...quickPrescriptions, { name: "", dosage: "", duration: "" }])}
+                  className="w-full mt-3 flex items-center justify-center gap-1.5 py-2 px-4 border border-dashed border-slate-300 hover:border-blue-400 hover:text-blue-600 rounded-xl text-xs font-bold text-slate-500 bg-white hover:bg-blue-50/20 shadow-sm transition-all"
+                >
+                  <Plus className="w-4 h-4"/> Agregar Medicamento
+                </button>
                 
                 <button 
                   onClick={handleSaveQuickRecord}
@@ -367,7 +571,7 @@ export default function DoctorDashboard({
                 <div className="mt-4 flex items-center gap-1.5 text-xs">
                   <span className={`w-2 h-2 rounded-full ${isTelemedicineActive ? 'bg-blue-500 animate-ping' : 'bg-slate-400'}`}></span>
                   <span className="font-semibold text-slate-500">
-                    {isTelemedicineActive ? 'Canal de telemedicina activo' : 'Canal offline'}
+                    {isTelemedicineActive ? 'Canal de telemedicina activo' : 'Canal desconectado'}
                   </span>
                 </div>
               </div>
@@ -509,6 +713,12 @@ export default function DoctorDashboard({
                               } else if (appt.status === "Cancelled") {
                                 statusColor = "bg-rose-50 text-rose-700 border-rose-200";
                                 statusLabel = language === "es" ? "Cancelado" : "Qullusqa";
+                              } else if (appt.status === "Up Next") {
+                                statusColor = "bg-amber-50 text-amber-700 border-amber-200";
+                                statusLabel = language === "es" ? "Siguiente" : "Qatiqnin";
+                              } else if (appt.status === "waiting") {
+                                statusColor = "bg-orange-50 text-orange-700 border-orange-200";
+                                statusLabel = language === "es" ? "En espera" : "Suyasqa";
                               }
 
                               return (
@@ -537,7 +747,7 @@ export default function DoctorDashboard({
                                       <div>
                                         <h5 className="font-bold text-slate-800 text-sm font-headline tracking-tight">{name}</h5>
                                         <p className="text-[11px] font-semibold text-slate-500 mt-0.5">
-                                          {appt.type || (language === "es" ? "Consulta General" : "Hampiy Rimana")}
+                                          {translateApptType(appt.type, language)}
                                         </p>
                                       </div>
                                     </div>
@@ -697,6 +907,12 @@ export default function DoctorDashboard({
                                   } else if (appt.status === "Cancelled") {
                                     statusColor = "bg-rose-50 text-rose-700 border border-rose-100";
                                     statusLabel = language === "es" ? "Cancelado" : "Qullusqa";
+                                  } else if (appt.status === "Up Next") {
+                                    statusColor = "bg-amber-50 text-amber-700 border border-amber-100";
+                                    statusLabel = language === "es" ? "Siguiente" : "Qatiqnin";
+                                  } else if (appt.status === "waiting") {
+                                    statusColor = "bg-orange-50 text-orange-700 border border-orange-100";
+                                    statusLabel = language === "es" ? "En espera" : "Suyasqa";
                                   }
 
                                   return (
@@ -717,7 +933,7 @@ export default function DoctorDashboard({
                                           </span>
                                         </div>
                                         <h5 className="font-bold text-slate-800 text-sm font-headline mb-1">{name}</h5>
-                                        <p className="text-[11px] font-semibold text-slate-500 mb-3">{appt.type || (language === "es" ? "Consulta General" : "Hampiy Rimana")}</p>
+                                        <p className="text-[11px] font-semibold text-slate-500 mb-3">{translateApptType(appt.type, language)}</p>
 
                                         {appt.status === "Scheduled" && (
                                           <div className="flex gap-2 w-full mt-2">

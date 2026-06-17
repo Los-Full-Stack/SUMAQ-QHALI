@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   HeartPulse, Wifi, WifiOff, LayoutDashboard, UserCheck, 
-  Plus, LogOut, Globe, Building2 
+  Plus, LogOut, Globe, Building2, User 
 } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 
@@ -50,7 +50,7 @@ export default function TopNavbar({
         <img src="/logo.svg" alt="Sumaq Qhali" className="w-6 h-6 object-contain" />
         <div className="hidden sm:block">
           <h1 className="text-lg font-bold font-headline select-none leading-tight">SUMAQ QHALI</h1>
-          <p className="text-[10px] text-cyan-200 uppercase tracking-widest font-semibold leading-none">Bilingual EHR</p>
+          <p className="text-[10px] text-cyan-200 uppercase tracking-widest font-semibold leading-none">HCE Bilingüe</p>
         </div>
       </div>
 
@@ -126,11 +126,9 @@ export default function TopNavbar({
                 {portalPatient.name.charAt(0)}
               </div>
             ) : (
-              <img 
-                alt="Profile" 
-                className="w-8 h-8 rounded-full object-cover border border-slate-50 bg-slate-400 shadow-md" 
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAM5UaqUkh2sx56STozqM32WevhNLGQ_7NBw-fl5xNG78VTY3So6rcpMCqHYVuI1hTJrxQW1fh_K-88lFGYTY-ByA0eBo3d-DKNwLtECMpjFiU2gkTjRzFPluL_8Zy_wQ_Ps9UX0QVcD2I8wNjwuUdPzSA9CrP8UsTJ7gfF32jaelRi1lQTvrOLd3lC0Yey1n9vLJ8LYpzLYscBGmbfzy_hWlL_z2rKzjNcM9-wcQhwZsh6S51INIBlR1Saf0K5ekGo-yIU1gyJGfw"
-              />
+              <div className="w-8 h-8 rounded-full border border-slate-50 bg-[#0b3c64] flex items-center justify-center text-white shadow-md">
+                <User className="w-4 h-4 text-cyan-200" />
+              </div>
             )}
             <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 rounded-full border-2 border-primary"></span>
           </div>

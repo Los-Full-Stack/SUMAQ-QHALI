@@ -1,8 +1,32 @@
-import React, { useState, useEffect } from "react";
-import { UserCheck, Heart, X, CalendarClock, AlertCircle, ActivitySquare, FileText, MapPin, Droplets, Clock, LogOut, Pill, Globe, Video, ChevronLeft, ChevronRight } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { UserCheck, Heart, X, CalendarClock, AlertCircle, ActivitySquare, FileText, MapPin, Droplets, Clock, LogOut, Pill, Globe, Video, ChevronLeft, ChevronRight, MessageSquare, Send, Sparkles, User } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import { api } from "../services/api";
 import JitsiCall from "./JitsiCall";
+
+const translateApptType = (type: string, lang: "es" | "qu") => {
+  if (!type) return lang === "es" ? "Consulta General" : "Hampiy Rimana";
+  const lower = type.toLowerCase();
+  if (lower.includes("routine")) {
+    return lang === "es" ? "Chequeo de Rutina" : "Kutipaq Qhaway";
+  }
+  if (lower.includes("follow-up") || lower.includes("control")) {
+    return lang === "es" ? "Control / Seguimiento" : "Qatiqnin Qhaway";
+  }
+  if (lower.includes("pediatric") || lower.includes("pediatria")) {
+    return lang === "es" ? "Consulta Pediátrica" : "Wawa Hampiy";
+  }
+  if (lower.includes("gynaecology") || lower.includes("gynecology") || lower.includes("ginecologia")) {
+    return lang === "es" ? "Ginecología" : "Warmikunap Hampiy";
+  }
+  if (lower.includes("pressure") || lower.includes("presion")) {
+    return lang === "es" ? "Control de Presión" : "Ñit'iy Qhaway";
+  }
+  if (lower.includes("obstetricia")) {
+    return lang === "es" ? "Obstetricia" : "Sullu Qhaway";
+  }
+  return type;
+};
 
 interface PatientPortalProps {
   language?: "es" | "qu";
@@ -87,7 +111,7 @@ const t = {
 export default function PatientPortal({ language = "es", onSetLanguage }: PatientPortalProps) {
   const { portalPatient, setPortalPatient, setLogout } = useAuthStore();
   const [isApptModalOpen, setIsApptModalOpen] = useState(false);
-  const [newApptForm, setNewApptForm] = useState({ date: "", time: "", type: "Consulta General" });
+  const [newApptForm, setNewApptForm] = useState({ date: "", time: "", type: "Medicina General" });
   const [myAppointments, setMyAppointments] = useState<any[]>([]);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
@@ -213,18 +237,20 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
   const getSpecialtyScheduleText = () => {
     if (language === "es") {
       switch(newApptForm.type) {
-        case "Consulta General": return "Horario: Lunes, Miércoles y Viernes (Dr. Quispe)";
-        case "Pediatría": return "Horario: Martes y Jueves (Dra. Rojas)";
-        case "Ginecología": return "Horario: Lunes, Martes y Jueves (Dr. Condori)";
-        case "Control de Presión": return "Horario: Lunes a Viernes (Enf. Huamán)";
+        case "Medicina General": return "Horario: Lunes, Miércoles y Viernes (Dr. Yawar Quispe)";
+        case "Pediatría": return "Horario: Martes y Jueves (Dra. Killa Choque)";
+        case "Obstetricia": return "Horario: Lunes, Martes y Jueves (Dra. Suyana Condori)";
+        case "Medicina Tradicional": return "Horario: Miércoles y Viernes (Dr. Inti Huaman)";
+        case "Control de Presión": return "Horario: Lunes a Viernes (Enf. Sayri Rimachi)";
         default: return "";
       }
     } else {
       switch(newApptForm.type) {
-        case "Consulta General": return "Horario: Lunes, Miércoles, Viernes p'unchaykunapi (Dr. Quispe)";
-        case "Pediatría": return "Horario: Martes, Jueves p'unchaykunapi (Dra. Rojas)";
-        case "Ginecología": return "Horario: Lunes, Martes, Jueves p'unchaykunapi (Dr. Condori)";
-        case "Control de Presión": return "Horario: Lunesmanta Vierneskama p'unchaykunapi (Enf. Huamán)";
+        case "Medicina General": return "Horario: Lunes, Miércoles, Viernes p'unchaykunapi (Dr. Yawar Quispe)";
+        case "Pediatría": return "Horario: Martes, Jueves p'unchaykunapi (Dra. Killa Choque)";
+        case "Obstetricia": return "Horario: Lunes, Martes, Jueves p'unchaykunapi (Dra. Suyana Condori)";
+        case "Medicina Tradicional": return "Horario: Miércoles, Viernes p'unchaykunapi (Dr. Inti Huaman)";
+        case "Control de Presión": return "Horario: Lunesmanta Vierneskama p'unchaykunapi (Enf. Sayri Rimachi)";
         default: return "";
       }
     }
@@ -378,6 +404,153 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
     }
   };
 
+  // Chatbot states
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Array<{ sender: "bot" | "user"; text: string; time: string; severity?: "low" | "medium" | "high" }>>([
+    {
+      sender: "bot",
+      text: language === "es" 
+        ? "Allillanchu (Hola), soy tu asistente de salud Sumaq Qhali. Cuéntame, ¿qué dolor o síntoma sientes hoy?" 
+        : "Allillanchu, Sumaq Qhali hampi yanapawaqniykim kani. Willaway, ¿ima nanaytataq sapa p'unchay kawsanki?",
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }
+  ]);
+  const [chatInput, setChatInput] = useState("");
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Auto-scroll to bottom of chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
+  // Handle language change for welcome message
+  useEffect(() => {
+    setChatMessages([
+      {
+        sender: "bot",
+        text: language === "es" 
+          ? "Allillanchu (Hola), soy tu asistente de salud Sumaq Qhali. Cuéntame, ¿qué dolor o síntoma sientes hoy?" 
+          : "Allillanchu, Sumaq Qhali hampi yanapawaqniykim kani. Willaway, ¿ima nanaytataq sapa p'unchay kawsanki?",
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }
+    ]);
+  }, [language]);
+
+  const handleSendBotMessage = (text: string) => {
+    if (!text.trim()) return;
+
+    // 1. Add user message
+    const userMsg = {
+      sender: "user" as const,
+      text: text,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setChatMessages(prev => [...prev, userMsg]);
+    setChatInput("");
+
+    // 2. Process symptom and generate response
+    setTimeout(() => {
+      const normalized = text.toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+
+      let botText = "";
+      let isSevere = false;
+
+      if (
+        normalized.includes("dolor fuerte") ||
+        normalized.includes("pecho") ||
+        normalized.includes("respirar") ||
+        normalized.includes("sangre") ||
+        normalized.includes("urgencia") ||
+        normalized.includes("emergencia") ||
+        normalized.includes("intenso") ||
+        normalized.includes("grave") ||
+        normalized.includes("vomito") ||
+        normalized.includes("nisyu") ||
+        normalized.includes("llaki") ||
+        normalized.includes("39") ||
+        normalized.includes("40") ||
+        normalized.includes("desmayo") ||
+        normalized.includes("desmaye") ||
+        normalized.includes("desmayarse") ||
+        normalized.includes("desmayado") ||
+        normalized.includes("pitiy") ||
+        normalized.includes("chinkay") ||
+        normalized.includes("musphay") ||
+        normalized.includes("convulsion") ||
+        normalized.includes("convulsiones") ||
+        normalized.includes("katatatay") ||
+        normalized.includes("infarto") ||
+        normalized.includes("paro cardiaco") ||
+        normalized.includes("sunqu nanay") ||
+        normalized.includes("asfixia") ||
+        normalized.includes("ahogo") ||
+        normalized.includes("samay phatay") ||
+        normalized.includes("hemorragia") ||
+        normalized.includes("yawar apamuy") ||
+        normalized.includes("intoxica") ||
+        normalized.includes("envenena") ||
+        normalized.includes("miyu") ||
+        normalized.includes("fractura") ||
+        normalized.includes("tullu p'aki") ||
+        normalized.includes("inconsciente") ||
+        normalized.includes("desvaneci") ||
+        normalized.includes("perdi") ||
+        normalized.includes("perdio") ||
+        normalized.includes("pierde el conocimiento") ||
+        normalized.includes("conocimiento") ||
+        normalized.includes("golpe") ||
+        normalized.includes("traumatismo") ||
+        normalized.includes("craneo")
+      ) {
+        isSevere = true;
+        botText = language === "es"
+          ? "⚠️ ¡Alerta Crítica! Este síntoma (como desmayos, pérdida de conocimiento, convulsiones, dolor de pecho o dificultad respiratoria) es de nivel grave y requiere atención médica inmediata. Por favor, NO te automediques. Te recomendamos agendar una cita urgente o unirte de inmediato a nuestra cola de Telemedicina en el botón de abajo para ser atendido por un médico, o acudir al establecimiento de salud más cercano."
+          : "⚠️ ¡Llaki Alerta! Kay unquyniykikunaqa (desmayo, convulsion, sunqu nanay, o samay phatay) nisyu grave unquymi kanman. Ama kikinpaq pastillakunata ukyaychu. Utqayman videollamada Telemedicina nisqaman yaykuy utaq urgentemente hampina wasiman ripuy.";
+      } else if (normalized.includes("cabeza") || normalized.includes("uma")) {
+        botText = language === "es"
+          ? "Para aliviar el dolor de cabeza, te recomendamos descansar en un ambiente silencioso y oscuro. Toma una infusión tibia de Manzanilla o Muña para reducir la tensión física. También puedes aplicar paños fríos sobre la frente."
+          : "Uma nanaypaqqa, ch'in ch'isi ukhupi samariy. Manzanilla oqaq o muña yakuta ukyay tensionta qispichinaykipaq. Chiriyachisqa p'achakunatapas mat'iykiman churay.";
+      } else if (normalized.includes("fiebre") || normalized.includes("calentura") || normalized.includes("rupapakuy") || normalized.includes("rupha")) {
+        botText = language === "es"
+          ? "Si es una fiebre leve, mantén la hidratación tomando abundante agua tibia. Una infusión de hojas de Eucalipto es excelente para refrescar. Coloca paños húmedos de agua fría sobre la frente y axilas. Si la fiebre es persistente o muy alta, te sugerimos consultar con un médico en nuestra cola de telemedicina."
+          : "Rupapakuy kaqtinqa, q'uñi yakukunata ukyay. Eucalipto yakuta ukyaypis allinmi sampa q'uñikunata refreshing nisqa ruwananpaq. Chiriyachisqa p'achawan mat'iykita llulluy. Nisyu rupapakuy kaqtinqa, hampiqta maskhay.";
+      } else if (normalized.includes("estomago") || normalized.includes("colico") || normalized.includes("wiksa") || normalized.includes("panza")) {
+        botText = language === "es"
+          ? "Para el dolor estomacal o cólicos, te sugerimos tomar una infusión de Muña (de propiedades antiespasmódicas y digestivas) o de Manzanilla. Aplica paños tibios sobre el abdomen y mantén reposo. Evita las comidas pesadas y grasosas."
+          : "Wiksa nanaypaqqa muña yakuta ukyay sumaq digestivo kasqanrayku. Q'uñi p'achakunata wiksaykiman churay. Ama llasa mikhuykunata mikhuychu, sampa caldillokunallata ukyay.";
+      } else if (normalized.includes("tos") || normalized.includes("resfrio") || normalized.includes("uhu") || normalized.includes("chuqu") || normalized.includes("gripe")) {
+        botText = language === "es"
+          ? "Para combatir la tos y el resfrío, es clave abrigar bien el pecho. Toma una infusión caliente de Eucalipto o Coca con miel. Adicionalmente, inhalar el vapor de agua hervida con hojas de eucalipto te ayudará a despejar las vías respiratorias."
+          : "Uhu o resfríopaqqa, q'asquykita sumaqta abrigay. Eucalipto utaq coca yakuta misk'iyuqta ukyay. Eucalipto wapsichikuypis allinmi ansa samayta kichanapaq.";
+      } else if (normalized.includes("espalda") || normalized.includes("wasa") || normalized.includes("cuerpo")) {
+        botText = language === "es"
+          ? "Para dolores de espalda o musculares, aplica calor local (compresas tibias o bolsa de agua caliente). Prepara una infusión de Coca o Manzanilla para calmar los espasmos musculares. Evita realizar esfuerzos físicos y descansa."
+          : "Wasa nanaypaqqa q'uñi yakuyuq bolsata churay nanasqanman. Coca o manzanilla yakuta ukyay aychakuna samananpaq. Ama llasata hoqhariychu.";
+      } else {
+        botText = language === "es"
+          ? "Para malestares generales del cuerpo, te sugerimos reposar abrigado, beber infusiones tibias de Muña o Manzanilla, y aplicar paños tibios en zonas adoloridas. Si las molestias no disminuyen, consulta con nuestro personal médico."
+          : "Allinmi. Tukuynin nanaykunapaqqa sumaqta samariy, q'uñita kawsay, muña o manzanilla yakukunatapas ukyay. Astawan nanasqa kaqtinqa hampiqta videoconferenciapi maskhay.";
+      }
+
+      const warningDisclaimer = language === "es"
+        ? "\n\n⚠️ Importante: Recomendación basada en medicina tradicional y cuidados del hogar. Bajo ninguna circunstancia debes automedicarse con fármacos (Paracetamol, Ibuprofeno, antibióticos, etc.)."
+        : "\n\n⚠️ Yachay: Kay yachaykunaqa andino hampikuykunallam. Ama paracetamol utaq ibuprofen pastillakunata ukyaychu.";
+
+      const botMsg = {
+        sender: "bot" as const,
+        text: botText + warningDisclaimer,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        severity: isSevere ? ("high" as const) : undefined
+      };
+
+      setChatMessages(prev => [...prev, botMsg]);
+    }, 800);
+  };
+
   const toggleLanguage = () => {
     if (onSetLanguage) {
       onSetLanguage(language === "es" ? "qu" : "es");
@@ -450,187 +623,207 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
             ) : (
               <>
             {/* TOP DASHBOARD WIDGETS (Horizontal Layout) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
               
-              {/* 1. Profile Card */}
-              <div className="bg-white/90 backdrop-blur-2xl rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-white flex flex-col gap-6 relative overflow-hidden group hover:shadow-[0_8px_30px_rgb(0,0,0,0.1)] transition-all duration-300 h-full">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-100 to-transparent rounded-bl-full z-0 opacity-50 transition-transform group-hover:scale-110"></div>
-                
-                <div className="relative z-10 flex items-center gap-4 border-b border-slate-100/60 pb-5">
-                  <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/30 ring-4 ring-white flex-shrink-0">
-                    <UserCheck className="w-7 h-7" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-black text-slate-800 font-headline leading-tight">{portalPatient.name}</h3>
-                    <div className="flex items-center gap-1.5 mt-1 text-xs text-slate-500 font-medium">
-                      <MapPin className="w-3 h-3 text-blue-500" /> {portalPatient.location}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="relative z-10 grid grid-cols-2 gap-3 text-sm mt-auto">
-                  <div className="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100 flex flex-col gap-1">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1"><FileText className="w-3 h-3"/> DNI</span>
-                    <span className="font-bold text-slate-700">{portalPatient.dni}</span>
-                  </div>
-                  <div className="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100 flex flex-col gap-1">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1"><Droplets className="w-3 h-3 text-rose-400"/> {dict.blood}</span>
-                    <span className="font-bold text-slate-700">{portalPatient.bloodType}</span>
-                  </div>
-                  <div className="col-span-2 bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100 flex flex-col gap-1">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1"><FileText className="w-3 h-3"/> {dict.historyNum}</span>
-                    <span className="font-bold text-slate-700 font-mono tracking-widest">{portalPatient.medicalHistoryNumber}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 2. Agenda Card */}
-              <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col gap-5 h-full">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
-                      <CalendarClock className="w-5 h-5" />
-                    </div>
-                    <h3 className="text-lg font-bold text-slate-800 font-headline">{dict.agendaTitle}</h3>
-                  </div>
-                </div>
-                
-                <button 
-                  onClick={handleImmediateAttention}
-                  className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white px-4 py-3 rounded-xl text-sm font-bold shadow-lg shadow-cyan-500/30 transition-all hover:-translate-y-0.5 flex items-center justify-center gap-2 animate-pulse-slow"
-                >
-                  <Video className="w-4 h-4" />
-                  Atención Inmediata
-                </button>
-                <button 
-                  onClick={() => setIsApptModalOpen(true)}
-                  className="w-full mt-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
-                >
-                  <CalendarClock className="w-3.5 h-3.5" />
-                  Programar Cita
-                </button>
-
-                {myAppointments.length > 0 ? (
-                  <div className="flex flex-col gap-3 max-h-[220px] overflow-y-auto beautiful-scrollbar pr-2 mt-2">
-                    {myAppointments.map((appt, i) => {
-                      const parts = appt.startTime.split(" ");
-                      const hasDate = parts.length > 1 && parts[0].includes("-");
-                      const datePart = hasDate ? parts[0] : new Date().toISOString().split("T")[0];
-                      const timePart = hasDate ? parts.slice(1).join(" ") : appt.startTime;
-                      const d = new Date(datePart + "T00:00:00");
-                      const month = isNaN(d.getTime()) ? "CITA" : d.toLocaleDateString(language === "es" ? "es-ES" : "qu-PE", { month: "short" }).toUpperCase();
-                      const day = isNaN(d.getTime()) ? "00" : d.getDate().toString().padStart(2, "0");
-
-                      return (
-                        <div key={i} className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100/80 rounded-2xl border border-slate-100 transition-colors group">
-                          <div className="flex items-center gap-3">
-                            <div className="bg-white shadow-sm border border-slate-200 rounded-xl py-1.5 w-12 text-center flex flex-col items-center justify-center">
-                              <span className="text-[8px] font-black text-blue-600 uppercase tracking-widest">{month}</span>
-                              <span className="text-base font-black text-slate-800 leading-tight">{day}</span>
-                            </div>
-                            <div className="flex flex-col">
-                              <p className="text-xs font-bold text-slate-800">{appt.type || "Consulta General"}</p>
-                              <p className="text-[10px] text-slate-500 font-medium flex items-center gap-1 mt-0.5">
-                                <Clock className="w-3 h-3 text-blue-500" /> {timePart || appt.startTime}
-                              </p>
-                              {appt.doctorName && (
-                                <p className="text-[9px] text-slate-400 font-bold mt-0.5">Med: {appt.doctorName}</p>
-                              )}
-                            </div>
-                          </div>
-                          {appt.status === "Scheduled" && (
-                            <button
-                              onClick={() => {
-                                const safeId = appt.id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
-                                setActiveCallRoom(`sqsalaappt${safeId}`);
-                              }}
-                              className="bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 cursor-pointer"
-                              title="Iniciar videollamada de la cita"
-                            >
-                              <Video className="w-3 h-3" />
-                              <span>Entrar</span>
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="bg-slate-50 border border-dashed border-slate-300 rounded-2xl p-6 flex flex-col items-center justify-center text-center gap-2 h-full min-h-[150px]">
-                    <CalendarClock className="w-6 h-6 text-slate-300" />
-                    <p className="text-xs text-slate-500 font-medium">{dict.noApptsDesc}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* 3. Active Medications */}
-              <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col gap-4 h-full">
-                <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
-                  <div className="p-2 bg-purple-50 text-purple-600 rounded-xl">
-                    <Pill className="w-5 h-5" />
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-800 font-headline">{dict.currentTreatment}</h3>
-                </div>
-                {activeMeds.length > 0 ? (
-                  <div className="flex flex-col gap-3 max-h-[280px] overflow-y-auto beautiful-scrollbar pr-1">
-                    {activeMeds.map((med: any, i: number) => (
-                      <div key={i} className="flex flex-col bg-gradient-to-r from-purple-50/50 to-white border border-purple-100/60 p-3.5 rounded-2xl relative overflow-hidden group hover:shadow-sm transition-all">
-                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-purple-400"></div>
-                        <p className="text-sm font-bold text-purple-900">{med.name}</p>
-                        <p className="text-xs text-slate-600 font-medium mt-1 leading-relaxed">{med.dosage}</p>
-                        <div className="mt-2 flex items-center justify-between">
-                          <span className="text-[10px] bg-white text-purple-700 px-2 py-1 rounded-md shadow-sm border border-purple-100 font-bold uppercase tracking-wider">
-                            {dict.duration}: {med.duration}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex-1 flex flex-col justify-center items-center p-4 bg-slate-50 rounded-2xl border border-slate-100 text-center min-h-[150px]">
-                    <Pill className="w-6 h-6 text-slate-300 mb-2" />
-                    <p className="text-xs text-slate-500 italic font-medium">{dict.noMeds}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* 4. Allergies & Conditions */}
+              {/* Column 1: Profile & Allergies/Conditions */}
               <div className="flex flex-col gap-6 h-full">
-                <div className="bg-white rounded-3xl p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 flex-1 flex flex-col">
-                  <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
-                    <div className="p-1.5 bg-orange-50 text-orange-500 rounded-lg"><AlertCircle className="w-4 h-4" /></div>
-                    <h4 className="text-sm font-bold text-slate-800">{dict.allergies}</h4>
+                {/* 1. Profile Card */}
+                <div className="bg-white/90 backdrop-blur-2xl rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-white flex flex-col gap-6 relative overflow-hidden group hover:shadow-[0_8px_30px_rgb(0,0,0,0.1)] transition-all duration-300 flex-grow">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-100 to-transparent rounded-bl-full z-0 opacity-50 transition-transform group-hover:scale-110"></div>
+                  
+                  <div className="relative z-10 flex items-center gap-4 border-b border-slate-100/60 pb-5">
+                    <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/30 ring-4 ring-white flex-shrink-0">
+                      <UserCheck className="w-7 h-7" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black text-slate-800 font-headline leading-tight">{portalPatient.name}</h3>
+                      <div className="flex items-center gap-1.5 mt-1 text-xs text-slate-500 font-medium">
+                        <MapPin className="w-3 h-3 text-blue-500" /> {portalPatient.location}
+                      </div>
+                    </div>
                   </div>
-                  {portalPatient.allergies?.length > 0 ? (
-                    <ul className="flex flex-col gap-2">
-                      {portalPatient.allergies.map((a: any, i: number) => (
-                        <li key={i} className="text-xs font-bold bg-gradient-to-r from-orange-50 to-white text-orange-700 px-3 py-2 rounded-xl border border-orange-100/50 flex justify-between items-center">
-                          <span>{a.name}</span>
-                          <span className="bg-white px-2 py-0.5 rounded-md text-[9px] uppercase shadow-sm border border-orange-100">{a.severity}</span>
-                        </li>
-                      ))}
-                    </ul>
+
+                  <div className="relative z-10 grid grid-cols-2 gap-3 text-sm mt-auto">
+                    <div className="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100 flex flex-col gap-1">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1"><FileText className="w-3 h-3"/> DNI</span>
+                      <span className="font-bold text-slate-700">{portalPatient.dni}</span>
+                    </div>
+                    <div className="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100 flex flex-col gap-1">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1"><Droplets className="w-3 h-3 text-rose-400"/> {dict.blood}</span>
+                      <span className="font-bold text-slate-700">{portalPatient.bloodType}</span>
+                    </div>
+                    <div className="col-span-2 bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100 flex flex-col gap-1">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1"><FileText className="w-3 h-3"/> {dict.historyNum}</span>
+                      <span className="font-bold text-slate-700 font-mono tracking-widest">{portalPatient.medicalHistoryNumber}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Allergies & Conditions */}
+                <div className="flex flex-col gap-6 flex-grow">
+                  <div className="bg-white rounded-3xl p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 flex flex-col">
+                    <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
+                      <div className="p-1.5 bg-orange-50 text-orange-500 rounded-lg"><AlertCircle className="w-4 h-4" /></div>
+                      <h4 className="text-sm font-bold text-slate-800">{dict.allergies}</h4>
+                    </div>
+                    {portalPatient.allergies?.length > 0 ? (
+                      <ul className="flex flex-col gap-2">
+                        {portalPatient.allergies.map((a: any, i: number) => (
+                          <li key={i} className="text-xs font-bold bg-gradient-to-r from-orange-50 to-white text-orange-700 px-3 py-2 rounded-xl border border-orange-100/50 flex justify-between items-center">
+                            <span>{a.name}</span>
+                            <span className="bg-white px-2 py-0.5 rounded-md text-[9px] uppercase shadow-sm border border-orange-100">{a.severity}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-slate-400 font-medium px-2">{dict.noAllergies}</p>
+                    )}
+                  </div>
+
+                  <div className="bg-white rounded-3xl p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 flex flex-col">
+                    <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
+                      <div className="p-1.5 bg-blue-50 text-blue-500 rounded-lg"><ActivitySquare className="w-4 h-4" /></div>
+                      <h4 className="text-sm font-bold text-slate-800">{dict.conditions}</h4>
+                    </div>
+                    {portalPatient.chronicConditions?.length > 0 ? (
+                      <ul className="flex flex-col gap-2">
+                        {portalPatient.chronicConditions.map((c: any, i: number) => (
+                          <li key={i} className="text-xs font-bold bg-gradient-to-r from-blue-50 to-white text-blue-700 px-3 py-2 rounded-xl border border-blue-100/50">
+                            {c.name}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-slate-400 font-medium px-2">{dict.noConditions}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Column 2: Agenda & Medications */}
+              <div className="flex flex-col gap-6 h-full">
+                {/* 2. Agenda Card */}
+                <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col gap-5 flex-grow">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                        <CalendarClock className="w-5 h-5" />
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-800 font-headline">{dict.agendaTitle}</h3>
+                    </div>
+                  </div>
+                  
+                  <button 
+                    onClick={handleImmediateAttention}
+                    className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white px-4 py-3 rounded-xl text-sm font-bold shadow-lg shadow-cyan-500/30 transition-all hover:-translate-y-0.5 flex items-center justify-center gap-2 animate-pulse-slow cursor-pointer"
+                  >
+                    <Video className="w-4 h-4" />
+                    Atención Inmediata
+                  </button>
+                  <button 
+                    onClick={() => setIsApptModalOpen(true)}
+                    className="w-full mt-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <CalendarClock className="w-3.5 h-3.5" />
+                    Programar Cita
+                  </button>
+
+                  {myAppointments.length > 0 ? (
+                    <div className="flex flex-col gap-3 max-h-[180px] overflow-y-auto beautiful-scrollbar pr-2 mt-2">
+                      {myAppointments.map((appt, i) => {
+                        const parts = appt.startTime.split(" ");
+                        const hasDate = parts.length > 1 && parts[0].includes("-");
+                        const datePart = hasDate ? parts[0] : new Date().toISOString().split("T")[0];
+                        const timePart = hasDate ? parts.slice(1).join(" ") : appt.startTime;
+                        const d = new Date(datePart + "T00:00:00");
+                        const month = isNaN(d.getTime()) ? "CITA" : d.toLocaleDateString(language === "es" ? "es-ES" : "qu-PE", { month: "short" }).toUpperCase();
+                        const day = isNaN(d.getTime()) ? "00" : d.getDate().toString().padStart(2, "0");
+
+                        return (
+                          <div key={i} className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100/80 rounded-2xl border border-slate-100 transition-colors group">
+                            <div className="flex items-center gap-3">
+                              <div className="bg-white shadow-sm border border-slate-200 rounded-xl py-1.5 w-12 text-center flex flex-col items-center justify-center">
+                                <span className="text-[8px] font-black text-blue-600 uppercase tracking-widest">{month}</span>
+                                <span className="text-base font-black text-slate-800 leading-tight">{day}</span>
+                              </div>
+                              <div className="flex flex-col">
+                                <p className="text-xs font-bold text-slate-800">{translateApptType(appt.type, language)}</p>
+                                <p className="text-[10px] text-slate-500 font-medium flex items-center gap-1 mt-0.5">
+                                  <Clock className="w-3 h-3 text-blue-500" /> {timePart || appt.startTime}
+                                </p>
+                                {appt.doctorName && (
+                                  <p className="text-[9px] text-slate-400 font-bold mt-0.5">
+                                    {language === "es" ? "Méd: " : "Hampiq: "}{appt.doctorName}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            {appt.status === "Scheduled" && (
+                              <button
+                                onClick={() => {
+                                  const safeId = appt.id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+                                  setActiveCallRoom(`sqsalaappt${safeId}`);
+                                }}
+                                className="bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                                title="Iniciar videollamada de la cita"
+                              >
+                                <Video className="w-3 h-3" />
+                                <span>Entrar</span>
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   ) : (
-                    <p className="text-xs text-slate-400 font-medium px-2">{dict.noAllergies}</p>
+                    <div className="bg-slate-50 border border-dashed border-slate-300 rounded-2xl p-6 flex flex-col items-center justify-center text-center gap-2 h-full min-h-[120px]">
+                      <CalendarClock className="w-6 h-6 text-slate-300" />
+                      <p className="text-xs text-slate-500 font-medium">{dict.noApptsDesc}</p>
+                    </div>
                   )}
                 </div>
 
-                <div className="bg-white rounded-3xl p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 flex-1 flex flex-col">
-                  <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-3">
-                    <div className="p-1.5 bg-blue-50 text-blue-500 rounded-lg"><ActivitySquare className="w-4 h-4" /></div>
-                    <h4 className="text-sm font-bold text-slate-800">{dict.conditions}</h4>
+                {/* 3. Active Medications */}
+                <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col gap-4 flex-grow">
+                  <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                    <div className="p-2 bg-purple-50 text-purple-600 rounded-xl">
+                      <Pill className="w-5 h-5" />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-800 font-headline">{dict.currentTreatment}</h3>
                   </div>
-                  {portalPatient.chronicConditions?.length > 0 ? (
-                    <ul className="flex flex-col gap-2">
-                      {portalPatient.chronicConditions.map((c: any, i: number) => (
-                        <li key={i} className="text-xs font-bold bg-gradient-to-r from-blue-50 to-white text-blue-700 px-3 py-2 rounded-xl border border-blue-100/50">
-                          {c.name}
-                        </li>
+                  {activeMeds.length > 0 ? (
+                    <div className="flex flex-col gap-3 max-h-[220px] overflow-y-auto beautiful-scrollbar pr-1">
+                      {activeMeds.map((med: any, i: number) => (
+                        <div key={i} className="flex flex-col bg-gradient-to-r from-purple-50/50 to-white border border-purple-100/60 p-3.5 rounded-2xl relative overflow-hidden group hover:shadow-sm transition-all">
+                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-purple-400"></div>
+                          <p className="text-sm font-bold text-purple-900">{med.name}</p>
+                          <p className="text-xs text-slate-600 font-medium mt-1 leading-relaxed">{med.dosage}</p>
+                          <div className="mt-2 flex items-center justify-between">
+                            <span className="text-[10px] bg-white text-purple-700 px-2 py-1 rounded-md shadow-sm border border-purple-100 font-bold uppercase tracking-wider">
+                              {dict.duration}: {med.duration}
+                            </span>
+                          </div>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   ) : (
-                    <p className="text-xs text-slate-400 font-medium px-2">{dict.noConditions}</p>
+                    <div className="flex-1 flex flex-col justify-center items-center p-4 bg-slate-50 rounded-2xl border border-slate-100 text-center min-h-[120px]">
+                      <Pill className="w-6 h-6 text-slate-300 mb-2" />
+                      <p className="text-xs text-slate-500 italic font-medium">{dict.noMeds}</p>
+                    </div>
                   )}
+                </div>
+              </div>
+
+              {/* Column 3: Empty (chatbot moved to floating widget) */}
+              <div className="hidden lg:flex flex-col gap-6 h-full">
+                <div className="bg-white/50 backdrop-blur rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100/50 flex flex-col items-center justify-center h-full min-h-[520px] max-h-[650px]">
+                  <MessageSquare className="w-12 h-12 text-slate-300 mb-3" />
+                  <p className="text-xs text-slate-400 font-medium text-center">
+                    {language === "es" 
+                      ? "Asistente de síntomas disponible" 
+                      : "Symptom yanapakuy kachkan"}
+                  </p>
                 </div>
               </div>
 
@@ -678,16 +871,22 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
                             <Heart className="w-3 h-3"/> {dict.aiIndications}
                           </p>
                           <p className="text-sm text-slate-700 leading-relaxed font-medium break-words">
-                            Rimaykullayki unqusqanchis, <span className="font-bold text-blue-700">{portalPatient.name}</span>. Hampiy kashan:<br/><br/>
-                            {cons.prescriptions && cons.prescriptions.map((p: any, i: number) => (
-                              <span key={i} className="flex items-center gap-2 mb-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span> 
-                                <span className="font-bold">{p.name}:</span> {p.dosage} por {p.duration}.
-                              </span>
-                            ))}
-                            <span className="block mt-4 p-3 bg-blue-50 text-blue-800 rounded-lg text-xs border border-blue-100">
-                              <strong>{dict.recommendation}:</strong> Dr. Quispepa nisqan hina puririnaykipaq sapa tutam suti unkupis kachita qispilla kawsay.
-                            </span>
+                            {cons.quechuaSummary ? (
+                              <span className="block whitespace-pre-wrap">{cons.quechuaSummary}</span>
+                            ) : (
+                              <>
+                                Rimaykullayki unqusqanchis, <span className="font-bold text-blue-700">{portalPatient.name}</span>. Hampiy kashan:<br/><br/>
+                                {cons.prescriptions && cons.prescriptions.map((p: any, i: number) => (
+                                  <span key={i} className="flex items-center gap-2 mb-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span> 
+                                    <span className="font-bold">{p.name}:</span> {p.dosage} por {p.duration}.
+                                  </span>
+                                ))}
+                                <span className="block mt-4 p-3 bg-blue-50 text-blue-800 rounded-lg text-xs border border-blue-100">
+                                  <strong>{dict.recommendation}:</strong> Dr. Yawar Quispepa nisqan hina puririnaykipaq sapa tutam suti unkupis kachita qispilla kawsay.
+                                </span>
+                              </>
+                            )}
                           </p>
                         </div>
 
@@ -758,10 +957,11 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
                   onChange={(e) => setNewApptForm({ ...newApptForm, type: e.target.value, date: "", time: "" })}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-sm font-medium text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer"
                 >
-                  <option>Consulta General</option>
+                  <option>Medicina General</option>
                   <option>Pediatría</option>
+                  <option>Obstetricia</option>
+                  <option>Medicina Tradicional</option>
                   <option>Control de Presión</option>
-                  <option>Ginecología</option>
                 </select>
                 <p className="text-[11px] text-cyan-700 font-semibold mt-1.5 flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-cyan-600" />
@@ -899,6 +1099,123 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
               </button>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Floating Chatbot Button */}
+      {portalPatient && !activeCallRoom && (
+        <button
+          onClick={() => setIsChatOpen(true)}
+          className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-gradient-to-br from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-2xl shadow-2xl shadow-blue-500/40 hover:shadow-blue-600/50 flex items-center justify-center transition-all duration-300 hover:scale-110 hover:-translate-y-1 cursor-pointer"
+          title={language === "es" ? "Abrir asistente de síntomas" : "Symptom yanapakuqta kichay"}
+        >
+          <MessageSquare className="w-6 h-6" />
+          {chatMessages.filter(m => m.severity === "high").length > 0 && (
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center shadow-lg animate-pulse">
+              {chatMessages.filter(m => m.severity === "high").length}
+            </span>
+          )}
+        </button>
+      )}
+
+      {/* Floating Chat Window Overlay */}
+      {isChatOpen && (
+        <div className="fixed bottom-24 right-6 z-50 w-[380px] max-w-[calc(100vw-2rem)] bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col animate-scale-up overflow-hidden max-h-[600px]">
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-blue-600 to-cyan-600 text-white shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="p-1.5 bg-white/20 rounded-xl">
+                <MessageSquare className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold font-headline leading-tight">
+                  {language === "es" ? "Asistente de Síntomas" : "Symptom Yanapakuy"}
+                </h3>
+                <p className="text-[9px] text-white/80 font-medium">
+                  {language === "es" ? "Medicina tradicional andina" : "Ande hampikuy"}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsChatOpen(false)}
+              className="p-1.5 hover:bg-white/20 rounded-xl transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Message list */}
+          <div className="flex-grow overflow-y-auto beautiful-scrollbar px-4 py-3 space-y-3 max-h-[350px]">
+            {chatMessages.map((msg, i) => (
+              <div key={i} className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}>
+                <div className={`max-w-[90%] rounded-2xl px-3.5 py-2.5 text-xs font-medium leading-relaxed ${
+                  msg.sender === "user"
+                    ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-tr-none shadow-sm"
+                    : msg.severity === "high"
+                    ? "bg-rose-50 border border-rose-200 text-rose-950 rounded-tl-none shadow-sm"
+                    : "bg-slate-100 text-slate-800 rounded-tl-none shadow-inner"
+                }`}>
+                  <p className="whitespace-pre-wrap leading-relaxed">{msg.text}</p>
+                  {msg.severity === "high" && (
+                    <button
+                      type="button"
+                      onClick={handleImmediateAttention}
+                      className="mt-2.5 w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 px-3 rounded-xl text-[10px] transition-all flex items-center justify-center gap-1.5 shadow-sm hover:scale-102 cursor-pointer"
+                    >
+                      <Video className="w-3 h-3 text-white" />
+                      {language === "es" ? "Unirse a Telemedicina" : "Telemedicina nisqaman yaykuy"}
+                    </button>
+                  )}
+                </div>
+                <span className="text-[9px] text-slate-400 mt-1 px-1 font-semibold">{msg.time}</span>
+              </div>
+            ))}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Quick replies suggestions */}
+          <div className="border-t border-slate-100 px-4 pt-2 pb-1 shrink-0">
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+              {language === "es" ? "Sugerencias:" : "Kamachiykuna:"}
+            </span>
+            <div className="flex flex-wrap gap-1 mb-2">
+              {language === "es" ? (
+                <>
+                  <button type="button" onClick={() => handleSendBotMessage("Dolor de cabeza")} className="bg-cyan-50/50 hover:bg-cyan-100 text-cyan-800 text-[10px] font-bold py-1 px-2 rounded-lg border border-cyan-100/50 transition-colors cursor-pointer">Dolor de cabeza</button>
+                  <button type="button" onClick={() => handleSendBotMessage("Fiebre")} className="bg-cyan-50/50 hover:bg-cyan-100 text-cyan-800 text-[10px] font-bold py-1 px-2 rounded-lg border border-cyan-100/50 transition-colors cursor-pointer">Fiebre</button>
+                  <button type="button" onClick={() => handleSendBotMessage("Dolor de estómago")} className="bg-cyan-50/50 hover:bg-cyan-100 text-cyan-800 text-[10px] font-bold py-1 px-2 rounded-lg border border-cyan-100/50 transition-colors cursor-pointer">Dolor de estómago</button>
+                  <button type="button" onClick={() => handleSendBotMessage("Tos y resfrío")} className="bg-cyan-50/50 hover:bg-cyan-100 text-cyan-800 text-[10px] font-bold py-1 px-2 rounded-lg border border-cyan-100/50 transition-colors cursor-pointer">Tos y resfrío</button>
+                </>
+              ) : (
+                <>
+                  <button type="button" onClick={() => handleSendBotMessage("Uma nanay")} className="bg-cyan-50/50 hover:bg-cyan-100 text-cyan-800 text-[10px] font-bold py-1 px-2 rounded-lg border border-cyan-100/50 transition-colors cursor-pointer">Uma nanay</button>
+                  <button type="button" onClick={() => handleSendBotMessage("Rupapakuy")} className="bg-cyan-50/50 hover:bg-cyan-100 text-cyan-800 text-[10px] font-bold py-1 px-2 rounded-lg border border-cyan-100/50 transition-colors cursor-pointer">Rupapakuy</button>
+                  <button type="button" onClick={() => handleSendBotMessage("Wiksa nanay")} className="bg-cyan-50/50 hover:bg-cyan-100 text-cyan-800 text-[10px] font-bold py-1 px-2 rounded-lg border border-cyan-100/50 transition-colors cursor-pointer">Wiksa nanay</button>
+                  <button type="button" onClick={() => handleSendBotMessage("Uhu")} className="bg-cyan-50/50 hover:bg-cyan-100 text-cyan-800 text-[10px] font-bold py-1 px-2 rounded-lg border border-cyan-100/50 transition-colors cursor-pointer">Uhu</button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Input form */}
+          <form
+            onSubmit={(e) => { e.preventDefault(); handleSendBotMessage(chatInput); }}
+            className="flex gap-1.5 items-center px-4 py-3 shrink-0 border-t border-slate-100"
+          >
+            <input
+              type="text"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              placeholder={language === "es" ? "Escribe tu síntoma aquí..." : "Ima nanayniykita qillqay..."}
+              className="flex-grow bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs font-semibold text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all font-sans"
+            />
+            <button
+              type="submit"
+              className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl transition-all shadow-md shadow-blue-500/25 flex items-center justify-center shrink-0 cursor-pointer hover:scale-105"
+            >
+              <Send className="w-4 h-4 text-white" />
+            </button>
+          </form>
         </div>
       )}
     </div>

@@ -104,5 +104,34 @@ export const api = {
     const resData = await res.json();
     if (!res.ok) throw new Error(resData.error || "Failed to delete shift");
     return resData;
+  },
+  getAgentReports: async () => {
+    const res = await fetch("/api/admin/agent-reports", { headers: getHeaders() });
+    const resData = await res.json();
+    if (!res.ok) throw new Error(resData.error || "Failed to fetch reports list");
+    return resData;
+  },
+  getAgentReportById: async (id: string) => {
+    const res = await fetch(`/api/admin/agent-reports/${id}`, { headers: getHeaders() });
+    const resData = await res.json();
+    if (!res.ok) throw new Error(resData.error || "Failed to fetch report detail");
+    return resData;
+  },
+  triggerAgentReport: async () => {
+    const res = await fetch("/api/admin/agent-reports/trigger", {
+      method: "POST",
+      headers: getHeaders()
+    });
+    let resData;
+    try {
+      resData = await res.json();
+    } catch (e) {
+      if (!res.ok) {
+        throw new Error(`El servidor retornó un error con código ${res.status}`);
+      }
+      throw new Error("La respuesta del servidor no es un JSON válido.");
+    }
+    if (!res.ok) throw new Error(resData.error || "Failed to trigger report generation");
+    return resData;
   }
 };
