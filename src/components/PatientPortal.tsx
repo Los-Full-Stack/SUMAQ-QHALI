@@ -621,7 +621,7 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
             ) : (
               <>
             {/* TOP DASHBOARD WIDGETS (Horizontal Layout) */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
               
               {/* Column 1: Profile & Allergies/Conditions */}
               <div className="flex flex-col gap-6 h-full">
@@ -813,17 +813,6 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
                 </div>
               </div>
 
-              {/* Column 3: Empty (chatbot moved to floating widget) */}
-              <div className="hidden lg:flex flex-col gap-6 h-full">
-                <div className="bg-white/50 backdrop-blur rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100/50 flex flex-col items-center justify-center h-full min-h-[520px] max-h-[650px]">
-                  <MessageSquare className="w-12 h-12 text-slate-300 mb-3" />
-                  <p className="text-xs text-slate-400 font-medium text-center">
-                    {language === "es" 
-                      ? "Asistente de síntomas disponible" 
-                      : "Symptom yanapakuy kachkan"}
-                  </p>
-                </div>
-              </div>
 
             </div>
 
