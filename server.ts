@@ -15,7 +15,7 @@ import {
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "sumaq_qhali_secret_key";
 
 app.use(express.json({ limit: "5mb" }));
@@ -279,6 +279,14 @@ let dbError: string | null = null;
         await pool.query("ALTER TABLE Consultations ADD COLUMN IF NOT EXISTS QuechuaSummary TEXT NULL");
       } catch (err: any) {
         console.error("Migration warning for Consultations.QuechuaSummary:", err.message);
+      }
+
+      // Ensure Password and AvatarURL columns exist in Patients (migration)
+      try {
+        await pool.query("ALTER TABLE Patients ADD COLUMN IF NOT EXISTS Password VARCHAR(255) NULL");
+        await pool.query("ALTER TABLE Patients ADD COLUMN IF NOT EXISTS AvatarURL VARCHAR(255) NULL");
+      } catch (err: any) {
+        console.error("Migration warning for Patients columns:", err.message);
       }
 
       // Clean up old shifts if they exist
@@ -732,6 +740,83 @@ let dbError: string | null = null;
         console.log("🌱 Clinical database seeding completed successfully.");
       }
 
+      // Enrich chronic disease observatory data without duplicating existing records.
+      const chronicObservatoryRecords = [
+        { id: "OBS_JUAN_E78", patient: "P_JUAN_MAMANI", code: "E78.5", name: "Dislipidemia mixta", year: 2020, date: "2026-04-08 08:20:00", note: "Colesterol y triglicéridos elevados. Se refuerza dieta baja en grasas, caminata diaria y control de perfil lipídico." },
+        { id: "OBS_JUAN_N18", patient: "P_JUAN_MAMANI", code: "N18.2", name: "Enfermedad renal crónica estadio 2", year: 2024, date: "2026-04-18 09:10:00", note: "Seguimiento por función renal levemente disminuida en paciente hipertenso. Control de creatinina, orina y presión arterial." },
+        { id: "OBS_MARIA_M81", patient: "P_MARIA_CONDORI", code: "M81.0", name: "Osteoporosis posmenopáusica", year: 2022, date: "2026-03-18 10:30:00", note: "Dolor óseo y riesgo de fractura. Se indica calcio, vitamina D, exposición solar segura y prevención de caídas." },
+        { id: "OBS_MARIA_K21", patient: "P_MARIA_CONDORI", code: "K21.9", name: "Enfermedad por reflujo gastroesofágico", year: 2021, date: "2026-04-21 11:00:00", note: "Pirosis recurrente posterior a comidas copiosas. Se recomienda fraccionar alimentos y evitar irritantes." },
+        { id: "OBS_LUCIA_J30", patient: "P_LUCIA_HUAMAN", code: "J30.4", name: "Rinitis alérgica crónica", year: 2024, date: "2026-04-25 09:45:00", note: "Congestión nasal recurrente por exposición a polvo y frío. Educación ambiental y antihistamínico si crisis." },
+        { id: "OBS_LUCIA_E66", patient: "P_LUCIA_HUAMAN", code: "E66.9", name: "Obesidad infantil", year: 2026, date: "2026-05-02 09:30:00", note: "IMC elevado para edad. Consejería familiar sobre bebidas azucaradas, lonchera saludable y actividad física." },
+        { id: "OBS_NESTOR_E66", patient: "P_NESTOR_YUPANQUI", code: "E66.9", name: "Obesidad no especificada", year: 2022, date: "2026-05-06 08:30:00", note: "Aumento ponderal asociado a sedentarismo. Plan de caminata progresiva y reducción de carbohidratos simples." },
+        { id: "OBS_NESTOR_K76", patient: "P_NESTOR_YUPANQUI", code: "K76.0", name: "Hígado graso no alcohólico", year: 2024, date: "2026-05-08 08:40:00", note: "Sospecha por obesidad y dispepsia. Se recomienda bajar peso y control de transaminasas." },
+        { id: "OBS_ROSA_D50", patient: "P_ROSA_CHOQUE", code: "D50.9", name: "Anemia ferropénica", year: 2026, date: "2026-05-12 14:15:00", note: "Gestante con fatiga y palidez leve. Continuar sulfato ferroso, ácido fólico y alimentación rica en hierro." },
+        { id: "OBS_ROSA_E03", patient: "P_ROSA_CHOQUE", code: "E03.9", name: "Hipotiroidismo subclínico", year: 2025, date: "2026-05-19 14:30:00", note: "Antecedente de TSH elevada. Seguimiento obstétrico y control hormonal según disponibilidad." },
+        { id: "OBS_SAYRI_I50", patient: "P_SAYRI_QUISPE", code: "I50.9", name: "Insuficiencia cardíaca crónica", year: 2020, date: "2026-04-12 10:20:00", note: "Disnea de esfuerzo y edema vespertino. Control de peso, sal, signos de alarma y adherencia terapéutica." },
+        { id: "OBS_SAYRI_J44", patient: "P_SAYRI_QUISPE", code: "J44.9", name: "Enfermedad pulmonar obstructiva crónica", year: 2019, date: "2026-04-22 10:45:00", note: "Tos crónica y disnea al esfuerzo por antecedente de humo de leña. Educación respiratoria y evitar exposición a humo." },
+        { id: "OBS_KILLA_F41", patient: "P_KILLA_TUPA", code: "F41.1", name: "Trastorno de ansiedad generalizada", year: 2025, date: "2026-05-01 11:30:00", note: "Preocupación persistente, insomnio y tensión muscular. Consejería, respiración guiada y seguimiento." },
+        { id: "OBS_KILLA_N80", patient: "P_KILLA_TUPA", code: "N80.9", name: "Endometriosis no especificada", year: 2023, date: "2026-05-09 11:50:00", note: "Dismenorrea severa recurrente. Manejo analgésico, evaluación ginecológica y registro de ciclos." },
+        { id: "OBS_INTI_E46", patient: "P_INTI_CONDORI", code: "E46", name: "Desnutrición proteico-calórica leve", year: 2025, date: "2026-04-03 09:20:00", note: "Peso bajo para edad con apetito irregular. Plan de alimentación familiar y seguimiento de crecimiento." },
+        { id: "OBS_INTI_L20", patient: "P_INTI_CONDORI", code: "L20.9", name: "Dermatitis atópica", year: 2024, date: "2026-04-30 09:15:00", note: "Prurito recurrente y piel seca. Hidratación de piel, evitar irritantes y control de alergias." },
+        { id: "OBS_SAYWA_F32", patient: "P_SAYWA_MAMANI", code: "F32.1", name: "Episodio depresivo moderado", year: 2025, date: "2026-04-14 15:00:00", note: "Ánimo bajo, fatiga y sueño no reparador. Seguimiento psicosocial, red familiar y evaluación clínica." },
+        { id: "OBS_SAYWA_G47", patient: "P_SAYWA_MAMANI", code: "G47.0", name: "Insomnio crónico", year: 2024, date: "2026-04-28 15:10:00", note: "Dificultad para dormir con cefaleas frecuentes. Higiene del sueño y reducción de pantallas nocturnas." },
+        { id: "OBS_TUPAC_I25", patient: "P_TUPAC_CUTIPA", code: "I25.9", name: "Cardiopatía isquémica crónica", year: 2021, date: "2026-04-09 08:35:00", note: "Dolor torácico previo y diabetes no controlada. Control cardiovascular, adherencia y signos de alarma." },
+        { id: "OBS_TUPAC_H36", patient: "P_TUPAC_CUTIPA", code: "H36.0", name: "Retinopatía diabética", year: 2024, date: "2026-05-16 08:55:00", note: "Visión borrosa intermitente en paciente diabético. Referencia a evaluación oftalmológica." },
+        { id: "OBS_TUPAC_G62", patient: "P_TUPAC_CUTIPA", code: "G62.9", name: "Neuropatía periférica", year: 2023, date: "2026-05-24 09:10:00", note: "Parestesias en pies. Educación sobre cuidado de pies, calzado y control glicémico." },
+        { id: "OBS_JUAN_I83", patient: "P_JUAN_MAMANI", code: "I83.9", name: "Várices de miembros inferiores", year: 2021, date: "2026-05-20 09:00:00", note: "Pesadez de piernas al finalizar jornada agrícola. Elevación de miembros y medias de compresión si disponibles." },
+        { id: "OBS_MARIA_H25", patient: "P_MARIA_CONDORI", code: "H25.9", name: "Catarata senil", year: 2026, date: "2026-05-23 10:15:00", note: "Disminución progresiva de agudeza visual. Referencia para evaluación oftalmológica." },
+        { id: "OBS_SAYRI_N40", patient: "P_SAYRI_QUISPE", code: "N40", name: "Hiperplasia prostática benigna", year: 2022, date: "2026-05-27 10:30:00", note: "Nicturia y chorro urinario débil. Control de síntomas urinarios y signos de retención." },
+        { id: "OBS_MARIA_I10", patient: "P_MARIA_CONDORI", code: "I10", name: "Hipertensión Arterial Primaria", year: 2023, date: "2026-05-29 10:10:00", note: "Presión arterial elevada en controles repetidos. Consejería sobre sal, actividad física y seguimiento mensual." },
+        { id: "OBS_SAYRI_I10", patient: "P_SAYRI_QUISPE", code: "I10", name: "Hipertensión Arterial Primaria", year: 2017, date: "2026-05-30 10:40:00", note: "Hipertensión de larga evolución con riesgo cardiovascular. Revisión de adherencia y control domiciliario." },
+        { id: "OBS_TUPAC_I10", patient: "P_TUPAC_CUTIPA", code: "I10", name: "Hipertensión Arterial Primaria", year: 2018, date: "2026-05-30 08:40:00", note: "Comorbilidad cardiometabólica en paciente diabético. Control estrecho de presión arterial." },
+        { id: "OBS_NESTOR_I10", patient: "P_NESTOR_YUPANQUI", code: "I10", name: "Hipertensión Arterial Primaria", year: 2024, date: "2026-05-31 08:20:00", note: "Presión arterial limítrofe asociada a obesidad. Seguimiento y reducción de sal." },
+        { id: "OBS_JUAN_E11", patient: "P_JUAN_MAMANI", code: "E11.9", name: "Diabetes Mellitus Tipo 2", year: 2025, date: "2026-06-01 08:00:00", note: "Glucosa elevada en control. Educación alimentaria y seguimiento de glicemia." },
+        { id: "OBS_SAYWA_E11", patient: "P_SAYWA_MAMANI", code: "E11.9", name: "Diabetes Mellitus Tipo 2", year: 2024, date: "2026-06-01 15:20:00", note: "Diabetes tipo 2 con cefaleas y fatiga. Control de glucosa y plan alimentario familiar." },
+        { id: "OBS_MARIA_E78", patient: "P_MARIA_CONDORI", code: "E78.5", name: "Dislipidemia mixta", year: 2024, date: "2026-06-02 10:20:00", note: "Perfil lipídico alterado. Dieta, caminata y control en tres meses." },
+        { id: "OBS_TUPAC_E78", patient: "P_TUPAC_CUTIPA", code: "E78.5", name: "Dislipidemia mixta", year: 2022, date: "2026-06-02 08:50:00", note: "Dislipidemia asociada a diabetes y cardiopatía. Control cardiovascular integral." },
+        { id: "OBS_SAYWA_E66", patient: "P_SAYWA_MAMANI", code: "E66.9", name: "Obesidad no especificada", year: 2025, date: "2026-06-03 15:40:00", note: "Aumento de peso con sedentarismo. Plan de caminatas y reducción de bebidas azucaradas." },
+        { id: "OBS_MARIA_M19", patient: "P_MARIA_CONDORI", code: "M19.9", name: "Artrosis No Especificada", year: 2021, date: "2026-06-04 11:10:00", note: "Dolor articular crónico con limitación funcional. Control de dolor, ejercicios suaves y calor local." },
+        { id: "OBS_TUPAC_N18", patient: "P_TUPAC_CUTIPA", code: "N18.2", name: "Enfermedad renal crónica estadio 2", year: 2025, date: "2026-06-05 08:45:00", note: "Riesgo renal por diabetes e hipertensión. Control de creatinina, proteinuria y presión arterial." }
+      ];
+
+      const observatoryPatientIds = [...new Set(chronicObservatoryRecords.map(r => r.patient))];
+      const availablePatients = await pool.query("SELECT PatientID FROM Patients WHERE PatientID = ANY($1)", [observatoryPatientIds]);
+      const availablePatientIds = new Set(availablePatients.rows.map((r: any) => r.PatientID ?? r.patientid));
+      let insertedObservatoryRows = 0;
+
+      for (const record of chronicObservatoryRecords) {
+        if (!availablePatientIds.has(record.patient)) continue;
+
+        const conditionResult = await pool.query(
+          `INSERT INTO ChronicConditions (ConditionID, PatientID, ConditionName, DiagnosedYear, Status)
+           VALUES ($1, $2, $3, $4, 'Active')
+           ON CONFLICT (ConditionID) DO NOTHING`,
+          [`C_${record.id}`, record.patient, record.name, record.year]
+        );
+        insertedObservatoryRows += conditionResult.rowCount || 0;
+
+        const consultationResult = await pool.query(
+          `INSERT INTO Consultations (ConsultationID, PatientID, Date, CIE10Code, DiagnosisTitle, Notes, CreatedBy, QuechuaSummary)
+           VALUES ($1, $2, $3, $4, $5, $6, 'Observatorio Crónico IA', $7)
+           ON CONFLICT (ConsultationID) DO NOTHING`,
+          [
+            `CON_${record.id}`,
+            record.patient,
+            record.date,
+            record.code,
+            record.name,
+            record.note,
+            "Kay unquyqa sapa kuti qhawarina. Hampita mana saqina, aylluwan yanapanakuna, mikhuyta puriytapas allinchana."
+          ]
+        );
+        insertedObservatoryRows += consultationResult.rowCount || 0;
+      }
+
+      if (insertedObservatoryRows > 0) {
+        await pool.query("DELETE FROM AgentReports");
+        console.log(`🌱 Chronic observatory enriched with ${insertedObservatoryRows} records. Agent reports refreshed.`);
+      }
+
       // Check and seed Medicines table if empty
       const checkMedicines = await pool.query("SELECT COUNT(*) as count FROM Medicines");
       if (Number(checkMedicines.rows[0].count) === 0) {
@@ -938,7 +1023,7 @@ function verifyToken(req: any, res: any, next: any) {
     req.user = verified;
     next();
   } catch (err) {
-    res.status(400).json({ error: "Token inválido" });
+    res.status(401).json({ error: "Sesión expirada. Inicia sesión nuevamente." });
   }
 }
 
@@ -1497,21 +1582,146 @@ app.post("/api/gemini/summarize-quechua", verifyToken, async (req, res) => {
 
   try {
     const ai = getGeminiClient();
-    const promptMessage = `Summarize and translate the following clinical note for patient ${patientName || "Juan Mamani"}: "${notes}"`;
+    const promptMessage = `Paciente: ${patientName || "Paciente rural"}.
+Texto clinico original:
+${notes}
+
+Tarea:
+1. Detecta si el texto esta principalmente en espanol o en quechua.
+2. Traduce TODO el contenido clinico sin resumir ni omitir medicamentos, dosis, duracion, diagnosticos, signos de alarma ni recomendaciones.
+3. Si el original esta en espanol, entrega primero "Quechua completo" y luego "Espanol claro para verificacion".
+4. Si el original esta en quechua, entrega primero "Espanol completo" y luego "Quechua original normalizado".
+5. Usa lenguaje claro, respetuoso y seguro para pacientes rurales. Conserva CIE-10, nombres de medicamentos y cantidades exactamente.`;
     const response = await ai.models.generateContent({
       model: "gemini-3.5-flash",
       contents: promptMessage,
       config: {
-        systemInstruction: "You are a clinical translator specialized in Andean health. Translate into Quechua.",
-        temperature: 0.7,
+        systemInstruction: "You are a medical interpreter for rural Andean care. Produce complete, faithful Spanish-Quechua or Quechua-Spanish clinical translations. Never summarize unless explicitly asked.",
+        temperature: 0.2,
       }
     });
     res.json({ translatedText: response.text });
   } catch (error: any) {
     res.json({ 
-      translatedText: "[FALLBACK] Paqarin p'unchaypas allinllacha kawsanki. Allin kani nispa sayariy...", 
+      translatedText: `Quechua completo:
+${notes}
+
+Espanol claro para verificacion:
+No se pudo usar el traductor automatico en este momento. Revise manualmente el texto original antes de entregarlo al paciente.`, 
       warning: "Gemini API failed." 
     });
+  }
+});
+
+const CHATBOT_EMERGENCY_TERMS = [
+  "dolor fuerte", "pecho", "respirar", "sangre", "urgencia", "emergencia",
+  "intenso", "grave", "vomito", "39", "40", "desmayo", "desmaye", "desmayarse",
+  "desmayado", "convulsion", "convulsiones", "infarto", "paro cardiaco",
+  "asfixia", "ahogo", "hemorragia", "intoxica", "envenena", "fractura",
+  "inconsciente", "desvaneci", "perdi", "perdio", "pierde el conocimiento",
+  "conocimiento", "golpe", "traumatismo", "craneo", "nisyu", "llaki", "pitiy",
+  "chinkay", "musphay", "katatatay", "sunqu nanay", "samay phatay",
+  "yawar apamuy", "miyu", "tullu p'aki"
+];
+
+function normalizeChatText(text: string) {
+  return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+}
+
+function isEmergencyChatMessage(text: string) {
+  const normalized = normalizeChatText(text);
+  return CHATBOT_EMERGENCY_TERMS.some(term => normalized.includes(term));
+}
+
+function buildChatbotFallback(message: string, language: "es" | "qu", forceEmergency = false) {
+  const normalized = normalizeChatText(message);
+  const isSevere = forceEmergency || isEmergencyChatMessage(message);
+  let botText = "";
+
+  if (isSevere) {
+    botText = language === "es"
+      ? "Alerta critica: lo que describes puede requerir atencion medica inmediata. No te automediques. Unete ahora a Telemedicina o acude al establecimiento de salud mas cercano, especialmente si hay dolor de pecho, dificultad para respirar, desmayo, convulsiones, sangrado, fiebre muy alta o perdida de conocimiento."
+      : "Llaki alerta: kay willasqaykiqa utqay hampiq yanapayta munanman. Ama kikinpaq pastillakunata ukyaychu. Kunan Telemedicina nisqaman yaykuy utaq hampina wasiman ripuy.";
+  } else if (normalized.includes("cabeza") || normalized.includes("uma")) {
+    botText = language === "es"
+      ? "Para dolor de cabeza leve, descansa en un ambiente tranquilo, toma agua y evita pantallas o ruido. Puedes usar una infusion tibia de manzanilla o muna si ya la toleras. Si aparece vision borrosa, rigidez de cuello, fiebre alta, vomitos persistentes o el dolor es subito e intenso, busca atencion medica."
+      : "Uma nanay ch'usaq kaqtinqa, ch'inpi samariy, yakuta ukyay. Manzanilla utaq muna yakuta ukyayta atinki sichus nawpaqmantapacha allin kasunki. Nisyu nanay, rupapakuy, nawi mana allin qhaway kaqtinqa hampiqta maskhay.";
+  } else if (normalized.includes("fiebre") || normalized.includes("calentura") || normalized.includes("rupapakuy") || normalized.includes("rupha")) {
+    botText = language === "es"
+      ? "Con fiebre leve, hidratate, usa ropa ligera y controla la temperatura. Evita automedicarte. Si llega a 39 C o mas, dura mas de 24-48 horas, hay dificultad para respirar, decaimiento marcado, embarazo, adulto mayor o nino pequeno, consulta de inmediato."
+      : "Rupapakuy ch'usaq kaqtinqa yakuta ukyay, mana llasa p'achawan kay, q'uniyta qhaway. 39 C chayan chayqa, samay sasachakun, wawa utaq machu runa kaqtinqa utqay hampiqta maskhay.";
+  } else if (normalized.includes("estomago") || normalized.includes("colico") || normalized.includes("wiksa") || normalized.includes("panza")) {
+    botText = language === "es"
+      ? "Para dolor estomacal leve, toma sorbos de agua, come suave y evita grasas o irritantes. Una infusion de muna o manzanilla puede ayudar si no eres alergico. Si hay sangre, vomitos persistentes, dolor muy fuerte, fiebre alta o embarazo, solicita atencion medica."
+      : "Wiksa nanay ch'usaq kaqtinqa, yakuta pisillamanta ukyay, llamp'u mikhuykunata mikhuy. Muna utaq manzanilla yanapanman. Yawar, nisyu nanay, kutichiy mana tukukuq kaqtinqa hampiqta maskhay.";
+  } else if (normalized.includes("tos") || normalized.includes("resfrio") || normalized.includes("uhu") || normalized.includes("chuqu") || normalized.includes("gripe")) {
+    botText = language === "es"
+      ? "Para tos o resfrio leve, hidratate, abriga el pecho y descansa. Puedes tomar infusion tibia de eucalipto o miel si no hay contraindicacion. Si falta el aire, hay dolor de pecho, labios morados, fiebre alta o empeora rapido, busca atencion urgente."
+      : "Uhu utaq chiri unquypaq yakuta ukyay, q'asquykita q'unichiy, samariy. Eucalipto q'uni yakuta ukyayta atinki. Samay sasachakuy, q'asqu nanay, nisyu rupapakuy kaqtinqa utqay hampiqta maskhay.";
+  } else {
+    botText = language === "es"
+      ? "Cuentame un poco mas: desde cuando empezo, que tan fuerte es del 1 al 10, tienes fiebre, dificultad para respirar, vomitos, sangrado o alguna enfermedad previa? Mientras tanto, hidratate, descansa y evita automedicarte."
+      : "Astawan willaway: hayk'aqmantataq qallarin, 1manta 10kama hayk'a sinchitaq, rupapakuy, samay sasachakuy, kutichiy, yawar kanchu? Chaykama yakuta ukyay, samariy, ama kikinpaq pastillakunata ukyaychu.";
+  }
+
+  const disclaimer = language === "es"
+    ? "\n\nImportante: esta orientacion no reemplaza una consulta medica. Usa Telemedicina si los sintomas persisten, empeoran o te preocupan."
+    : "\n\nYachay: kay yanapayqa manam hampiqpa qhawayninta rantinchu. Unquy mana chinkaptin utaq yapakuptin Telemedicina nisqaman yaykuy.";
+
+  return {
+    text: botText + disclaimer,
+    severity: isSevere ? "high" : "medium",
+    suggestedAction: isSevere ? "telemedicine_now" : "self_care_monitor"
+  };
+}
+
+app.post("/api/gemini/health-chat", verifyToken, async (req: any, res) => {
+  const { message, language = "es", patientContext = {}, history = [] } = req.body;
+  if (!message || typeof message !== "string") {
+    return res.status(400).json({ error: "Se requiere un mensaje para el chatbot." });
+  }
+
+  const safeLanguage = language === "qu" ? "qu" : "es";
+  const emergencyDetected = isEmergencyChatMessage(message);
+
+  try {
+    const ai = getGeminiClient();
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: JSON.stringify({
+        message,
+        language: safeLanguage,
+        emergencyDetected,
+        patientContext,
+        recentConversation: Array.isArray(history) ? history.slice(-8) : []
+      }),
+      config: {
+        systemInstruction: `Eres el asistente inteligente de salud de Sumaq Qhali para pacientes rurales andinos. Responde en ${safeLanguage === "es" ? "espanol claro" : "quechua simple con terminos comprensibles"}.
+No diagnostiques de forma definitiva, no recetes farmacos, no indiques dosis de medicamentos y no reemplaces al medico. Haz triaje prudente: si hay senales de alarma, marca severidad high y recomienda Telemedicina o centro de salud inmediato. Si no hay alarma, entrega autocuidado seguro, preguntas de seguimiento concretas y recomendaciones interculturales andinas solo como apoyo no farmacologico. Se breve, calido y util.`,
+        temperature: 0.35,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "OBJECT",
+          properties: {
+            text: { type: "STRING" },
+            severity: { type: "STRING", enum: ["low", "medium", "high"] },
+            suggestedAction: { type: "STRING", enum: ["telemedicine_now", "schedule_appointment", "self_care_monitor", "ask_followup"] }
+          },
+          required: ["text", "severity", "suggestedAction"]
+        }
+      }
+    });
+
+    const parsed = JSON.parse(response.text || "{}");
+    const fallback = buildChatbotFallback(message, safeLanguage, emergencyDetected);
+    res.json({
+      text: typeof parsed.text === "string" ? parsed.text : fallback.text,
+      severity: emergencyDetected ? "high" : (["low", "medium", "high"].includes(parsed.severity) ? parsed.severity : fallback.severity),
+      suggestedAction: emergencyDetected ? "telemedicine_now" : (parsed.suggestedAction || fallback.suggestedAction)
+    });
+  } catch (error: any) {
+    console.warn("Gemini API failed for health chatbot. Using local fallback:", error.message);
+    res.json({ ...buildChatbotFallback(message, safeLanguage, emergencyDetected), warning: "Gemini API failed." });
   }
 });
 
@@ -1797,6 +2007,25 @@ async function runAutonomousAgentReport(pool: any): Promise<any> {
   const queueRes = await pool.query("SELECT COUNT(*) as count FROM TelemedicineQueue");
   const queueCount = Number(queueRes.rows[0].count);
 
+  const chronicRes = await pool.query(`
+    SELECT ConditionName, COUNT(*) as count
+    FROM ChronicConditions
+    GROUP BY ConditionName
+    ORDER BY count DESC, ConditionName ASC
+    LIMIT 12
+  `);
+  const topChronicConditions = chronicRes.rows;
+
+  const chronicLocationRes = await pool.query(`
+    SELECT p.Location, COUNT(*) as count
+    FROM ChronicConditions cc
+    JOIN Patients p ON p.PatientID = cc.PatientID
+    GROUP BY p.Location
+    ORDER BY count DESC
+    LIMIT 8
+  `);
+  const chronicByLocation = chronicLocationRes.rows;
+
   // Fallback and mock data injection if database is completely empty
   const summary = {
     totalPatients: totalPatients || 8,
@@ -1805,6 +2034,12 @@ async function runAutonomousAgentReport(pool: any): Promise<any> {
     topDiagnoses: topDiagnoses.length > 0 
       ? topDiagnoses.map(d => `${d.DiagnosisTitle ?? d.diagnosistitle} (${d.CIE10Code ?? d.cie10code}): ${d.count} casos`)
       : ["Hipertensión Esencial (I10): 4 casos", "Osteoartritis No Especificada (M19.9): 3 casos", "Consulta por Telemedicina (Z00.0): 5 casos"],
+    topChronicConditions: topChronicConditions.length > 0
+      ? topChronicConditions.map(c => `${c.ConditionName ?? c.conditionname}: ${c.count} pacientes`)
+      : ["Hipertensión Arterial Primaria: 4 pacientes", "Diabetes Mellitus Tipo 2: 3 pacientes", "Osteoartrosis: 3 pacientes"],
+    chronicByLocation: chronicByLocation.length > 0
+      ? chronicByLocation.map(c => `${c.Location ?? c.location}: ${c.count} condiciones crónicas`)
+      : ["Urubamba: 5 condiciones crónicas", "Calca: 4 condiciones crónicas", "Pisac: 3 condiciones crónicas"],
     topAllergies: topAllergies.length > 0
       ? topAllergies.map(a => `${a.AllergyName ?? a.allergyname}: ${a.count} pacientes`)
       : ["Penicilina: 1 pacientes", "Ácaros del polvo: 1 pacientes", "Vapores de asfalto: 1 pacientes"]
@@ -1813,14 +2048,14 @@ async function runAutonomousAgentReport(pool: any): Promise<any> {
   let content;
   try {
     const ai = getGeminiClient();
-    const promptMessage = `Genera un reporte epidemiológico y clínico autónomo para la comunidad andina basado en estos datos de SUMAQ QHALI:
+    const promptMessage = `Genera un reporte de observatorio de enfermedades crónicas para la comunidad andina basado en estos datos de SUMAQ QHALI:
     ${JSON.stringify(summary, null, 2)}`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3.5-flash",
       contents: promptMessage,
       config: {
-        systemInstruction: "Eres el 'Agente de Salud y Epidemiología Andina IA' de SUMAQ QHALI. Tu función es analizar de forma autónoma los datos de salud rural y devolver un reporte estructurado en formato JSON. En alertas, clasifica el nivel exactamente como 'alto', 'medio' o 'bajo'. En las recomendaciones preventivas, incluye el tema, el enfoque clínico de medicina occidental y el enfoque intercultural andino (ej. hierbas tradicionales, fitoterapia local o cosmovisión andina). Tu respuesta debe ser estrictamente un objeto JSON válido.",
+        systemInstruction: "Eres el 'Observatorio de Enfermedades Crónicas Andinas IA' de SUMAQ QHALI. Tu función es analizar prevalencia, comorbilidades, continuidad de controles y riesgo comunitario de enfermedades crónicas rurales. Devuelve un reporte estructurado en JSON. En alertas, clasifica el nivel exactamente como 'alto', 'medio' o 'bajo'. En recomendaciones, incluye tema, enfoque clínico occidental y enfoque intercultural andino como apoyo no sustitutivo. Tu respuesta debe ser estrictamente un objeto JSON válido.",
         temperature: 0.7,
         responseMimeType: "application/json",
         responseSchema: {
@@ -1865,22 +2100,22 @@ async function runAutonomousAgentReport(pool: any): Promise<any> {
 
     content = JSON.parse(response.text || "{}");
   } catch (aiErr: any) {
-    console.warn("⚠️ Gemini API failed for Autonomous Report. Using local epidemiological fallback engine:", aiErr.message);
+    console.warn("⚠️ Gemini API failed for Chronic Observatory Report. Using local chronic-care fallback engine:", aiErr.message);
     content = {
-      titulo: `Reporte Epidemiológico Autónomo Rural - ${new Date().toLocaleDateString()}`,
+      titulo: `Observatorio de Enfermedades Crónicas Rural - ${new Date().toLocaleDateString()}`,
       resumenQuechua: `Allillanchu t'uta yachaywasi. SUMAQ QHALI llank'aykunamanta riqsichiy: ${summary.totalPatients} unqusqakuna qhawarisqa kashanku. Allin kayninchikpaq hampikuna kashan.`,
-      analisisComunitario: `Análisis epidemiológico local: se registra una prevalencia de enfermedades crónicas de hipertensión arterial y diabetes en pacientes adultos mayores en las comunidades de Urubamba y Pisac. Las alertas de alergias a la penicilina se mantienen estables.`,
+      analisisComunitario: `Análisis local de crónicos: se registra carga sostenida de hipertensión arterial, diabetes mellitus tipo 2, enfermedades respiratorias crónicas, trastornos osteoarticulares y problemas renales en adultos mayores y pacientes con controles pendientes. La prioridad operativa es continuidad terapéutica, educación alimentaria, control periódico y detección de comorbilidades.`,
       alertas: [
-        { titulo: "Casos de Hipertensión en Adultos Mayores", nivel: "medio", descripcion: "Se detecta un incremento leve de controles de presión pendientes en Urubamba." },
-        { titulo: "Alergias a Medicamentos Críticos", nivel: "alto", descripcion: "Paciente semilla con alergia severa registrada a la Penicilina en Urubamba." }
+        { titulo: "Hipertensión y diabetes en adultos mayores", nivel: "alto", descripcion: "Pacientes con enfermedades cardiometabólicas requieren control de presión, glucosa y adherencia farmacológica." },
+        { titulo: "Dolor crónico y limitación funcional", nivel: "medio", descripcion: "Se observan casos osteoarticulares que pueden afectar movilidad, trabajo agrícola y calidad de vida." }
       ],
       recomendaciones: [
         { tema: "Control de Presión Arterial", clinico: "Monitoreo continuo de presión arterial diario y reducción del consumo de sodio.", intercultural: "Uso tradicional de infusiones de Muña y hojas de Olivo como coadyuvante natural." },
-        { tema: "Tratamiento de Infecciones", clinico: "Evitar el uso de penicilina en pacientes alérgicos registrados, sustituyendo por macrólidos.", intercultural: "Infusiones de hojas de Eucalipto y lavados con manzanilla para afecciones leves respiratorias." }
+        { tema: "Diabetes y alimentación", clinico: "Control de glucosa, adherencia a metformina cuando esté indicada y plan alimentario bajo en azúcares simples.", intercultural: "Acompañar con educación familiar sobre porciones de papa, pan, bebidas azucaradas y caminatas comunitarias." }
       ],
       accionesUrgentes: [
-        "Coordinar visitas domiciliarias del Enfermero Huamán para el control de presión arterial en Urubamba.",
-        "Asegurar stock de medicamentos alternativos a la penicilina en el Puesto de Salud de Urubamba."
+        "Programar ronda de control de presión arterial, glucosa capilar y peso en adultos mayores.",
+        "Revisar adherencia terapéutica y recetas vencidas en pacientes con diabetes, hipertensión, asma/EPOC y enfermedad renal."
       ]
     };
   }

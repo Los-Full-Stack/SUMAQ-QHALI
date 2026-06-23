@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
-  HeartPulse, Wifi, WifiOff, LayoutDashboard, UserCheck, 
-  Plus, LogOut, Globe, Building2, User 
+  Wifi, WifiOff, LayoutDashboard, UserCheck, 
+  UserPlus, LogOut, Globe, Building2, User 
 } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 
@@ -91,7 +91,7 @@ export default function TopNavbar({
             onClick={onRegisterPatient}
             className="bg-secondary hover:bg-[#004d63] text-white flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-bold shadow-sm cursor-pointer transition-colors"
           >
-            <Plus className="w-4 h-4" /> <span className="hidden md:inline">Registrar</span>
+            <UserPlus className="w-4 h-4" /> <span className="hidden md:inline">Registrar</span>
           </button>
         )}
 

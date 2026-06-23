@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
-  HeartPulse, Wifi, WifiOff, LayoutDashboard, UserCheck, 
-  Plus, LogOut, Globe, Building2 
+  Wifi, WifiOff, LayoutDashboard, UserCheck, 
+  UserPlus, LogOut, Globe, Building2 
 } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 
@@ -125,7 +125,7 @@ export default function Sidebar({
               onClick={onRegisterPatient}
               className="w-full bg-secondary hover:bg-[#004d63] text-white flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-bold shadow-sm cursor-pointer"
             >
-              <Plus className="w-4 h-4" /> Registrar Paciente
+              <UserPlus className="w-4 h-4" /> Registrar Paciente
             </button>
           )}
 

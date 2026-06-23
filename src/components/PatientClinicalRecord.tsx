@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Patient, Consultation, Medication, MedicalFile, Language } from "../types";
-import { 
+import {
   ArrowLeft, 
-  Printer, 
   AlertTriangle, 
   Activity, 
   Upload, 
@@ -10,14 +9,18 @@ import {
   Trash2, 
   Search, 
   Eye, 
-  Download, 
   Check, 
   Sparkles,
   FileText,
   AlertCircle,
   FileImage,
-  Info
+  Info,
+  Stethoscope,
+  Pill,
+  Languages
 } from "lucide-react";
+import { notify } from "../services/uiFeedback";
+import { formatDate } from "../services/exportDocuments";
 
 interface RecordProps {
   language: Language;
@@ -165,21 +168,25 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
       }
     } catch (e) {
       console.error(e);
-      alert("Error al guardar registro.");
+      notify({ type: "error", title: "No se pudo guardar", message: "El registro clínico no fue guardado. Intenta nuevamente." });
     }
   };
 
   // Gemini translator integration
   const handleTranslateQuechua = async () => {
     if (!clinicalNotes && !diagnosisTitle) {
-      alert("Por favor, ingrese notas clínicas o diagnóstico antes de traducir.");
+      notify({ type: "warning", title: "Falta información clínica", message: "Ingresa notas clínicas o diagnóstico antes de traducir." });
       return;
     }
     try {
       setTranslating(true);
+      const token = localStorage.getItem("sumaq_token");
       const res = await fetch("/api/gemini/summarize-quechua", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({
           notes: `Diagnosis: ${diagnosisTitle}. CIE-10: ${cie10Code}. Notas: ${clinicalNotes}. Tratamiento: ${medications.map(m => `${m.name} (${m.dosage} por ${m.duration})`).join(", ")}`,
           patientName: patient?.name
@@ -188,9 +195,14 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
       if (res.ok) {
         const data = await res.json();
         setAiTranslatorResult(data.translatedText);
+        notify({ type: "success", title: "Traduccion completa", message: "Se genero la version bilingue completa de la indicacion clinica." });
+      } else {
+        const data = await res.json().catch(() => ({}));
+        notify({ type: "error", title: "No se pudo traducir", message: data.error || "Revisa la sesion e intenta nuevamente." });
       }
     } catch (e) {
       console.error(e);
+      notify({ type: "error", title: "No se pudo traducir", message: "El servicio de traduccion no respondio." });
     } finally {
       setTranslating(false);
     }
@@ -289,42 +301,8 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
     triggerFileBase64Save(file);
   };
 
-  // Trigger PDF Mock Export Download
-  const handlePrintDossier = () => {
-    if (!patient) return;
-    const originalText = `--------------------------------------------------
-SUMAQ QHALI - EXPEDIENTE DE HISTORIA CLÍNICA
-Fecha: ${new Date().toLocaleDateString()}
-Red Médica: Red de Salud Cusco
---------------------------------------------------
-PACIENTE: ${patient.name}
-Expediente: ${patient.medicalHistoryNumber}
-DNI: ${patient.dni}
-Edad: ${patient.age} años
-Tipo de Sangre: ${patient.bloodType}
-Ubicación: ${patient.location}
 
-ALERGIAS:
-${patient.allergies.map(a => `- ${a.name} [Severidad: ${a.severity}]`).join("\n") || "Ninguna registrada"}
 
-CONDICIONES CRÓNICAS:
-${patient.chronicConditions.map(c => `- ${c.name} [Desde ${c.diagnosedYear}]`).join("\n") || "Ninguna registrada"}
-
-HISTORIAL CONSULTAS RECUPERADAS:
-${patient.consultations.map(c => `[${c.date.slice(0, 10)}] ${c.cie10Code}: ${c.diagnosisTitle} - ${c.createdBy || "Dr. Yawar Quispe"}
-Notas: "${c.notes}"
-Receta: ${c.prescriptions.map(m => `${m.name} (${m.dosage})`).join(", ")}`).join("\n\n") || "No hay consultas previas registradas."}
---------------------------------------------------
-Precisión Ética en Salud Andina
-`;
-    const element = document.createElement("a");
-    const file = new Blob([originalText], { type: "text/plain" });
-    element.href = URL.createObjectURL(file);
-    element.download = `Historia_Clinica_${patient.name.replace(/\s+/g, "_")}.txt`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-  };
 
   if (loading) {
     return (
@@ -372,14 +350,6 @@ Precisión Ética en Salud Andina
           >
             <ArrowLeft className="w-5 h-5" />
             <span>Volver a Pacientes</span>
-          </button>
-
-          <button 
-            onClick={handlePrintDossier}
-            className="flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-xs md:text-sm font-semibold transition-colors shadow-sm cursor-pointer"
-          >
-            <Printer className="w-4 h-4 text-secondary" />
-            <span>Exportar Historia (TXT/PDF)</span>
           </button>
         </div>
 
@@ -458,7 +428,7 @@ Precisión Ética en Salud Andina
                 {/* Active Diagnosis Entry Form */}
                 <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm flex flex-col gap-5">
                   <h3 className="text-base md:text-lg font-bold font-headline text-primary border-b border-gray-100 pb-3 flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-secondary" />
+                    <Stethoscope className="w-5 h-5 text-secondary" />
                     <span>Diagnóstico Clínico Actual</span>
                   </h3>
 
@@ -550,7 +520,7 @@ Precisión Ética en Salud Andina
                       <div className="absolute top-2 right-2 text-[8px] font-bold text-amber-800 uppercase tracking-widest bg-amber-100 px-1.5 py-0.5 rounded">
                         Linguistics
                       </div>
-                      <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                      <Languages className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                       <div className="text-xs text-amber-950 font-sans leading-relaxed whitespace-pre-wrap">
                         {aiTranslatorResult}
                       </div>
@@ -563,7 +533,7 @@ Precisión Ética en Salud Andina
                 <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm flex flex-col gap-4">
                   <div className="flex justify-between items-center border-b border-gray-100 pb-3">
                     <h3 className="text-base font-bold font-headline text-primary flex items-center gap-2">
-                      <Plus className="w-5 h-5 text-secondary" />
+                      <Pill className="w-5 h-5 text-secondary" />
                       <span>Tratamiento y Receta Médica</span>
                     </h3>
                     <button 
@@ -823,7 +793,7 @@ Precisión Ética en Salud Andina
                       
                       {/* Simulated preview button */}
                       <button 
-                        onClick={() => alert("Abriendo archivo "+ f.name + " para pre-visulización clínica en alta definición...")}
+                        onClick={() => notify({ type: "info", title: "Vista previa clínica", message: `Abriendo ${f.name} para previsualización.` })}
                         className="text-gray-400 hover:text-primary transition-colors cursor-pointer"
                       >
                         <Eye className="w-3.5 h-3.5" />

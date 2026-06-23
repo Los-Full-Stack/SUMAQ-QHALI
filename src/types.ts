@@ -27,6 +27,7 @@ export interface Consultation {
   notes: string;
   prescriptions: Medication[];
   createdBy: string;
+  quechuaSummary?: string;
 }
 
 export interface MedicalFile {

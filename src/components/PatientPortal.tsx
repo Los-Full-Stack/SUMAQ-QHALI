@@ -59,7 +59,6 @@ const t = {
     medicalNotes: "Notas del Médico",
     aiIndications: "Indicaciones Bilingües (AI)",
     recommendation: "Recomendación",
-    downloadPdf: "Descargar Receta PDF",
     noHistory: "Sin Historial Clínico",
     noHistoryDesc: "Aún no hay recetas ni diagnósticos registrados en tu expediente por el personal médico.",
     connecting: "Conectando...",
@@ -95,7 +94,6 @@ const t = {
     medicalNotes: "Hampiqpa Qillqasqan",
     aiIndications: "Bilingüe Yachaykuna (AI)",
     recommendation: "Kamachikuy",
-    downloadPdf: "Recetata PDF uraykuchiy",
     noHistory: "Manam Historial kanchu",
     noHistoryDesc: "Manaraqmi hampiqkuna recetata nitaq diagnosticota qillqasqakuchu.",
     connecting: "Tinkuchkaspa...",
@@ -890,11 +888,7 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
                           </p>
                         </div>
 
-                        <div className="mt-4 flex justify-end">
-                          <button className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-2.5 rounded-xl text-xs font-bold transition-all shadow-[0_4px_14px_0_rgb(0,0,0,0.2)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.23)] hover:-translate-y-0.5">
-                            {dict.downloadPdf}
-                          </button>
-                        </div>
+
                       </div>
                     </div>
                   ))}

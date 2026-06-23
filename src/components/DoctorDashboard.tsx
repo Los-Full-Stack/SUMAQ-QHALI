@@ -2,11 +2,12 @@ import React, { useState, useEffect } from "react";
 import { Patient, Appointment, RecentActivity, Language } from "../types";
 import { useAuthStore } from "../store/useAuthStore";
 import { 
-  Users, AlertCircle, Video, Calendar, Search, ChevronLeft, ChevronRight, Clock, FolderLock, FileSpreadsheet, Package, Activity, Plus, Hospital, LogOut, HelpCircle, TrendingUp, Award, MapPin, Globe, Signal, Trash2, Pill
+  Users, AlertCircle, Video, Calendar, Search, ChevronLeft, ChevronRight, Clock, FileSpreadsheet, Package, Activity, Plus, Hospital, LogOut, HelpCircle, TrendingUp, MapPin, Globe, Signal, Trash2, Pill, ClipboardList, Languages, UserPlus
 } from "lucide-react";
 import JitsiCall from "./JitsiCall";
 import PatientClinicalRecord from "./PatientClinicalRecord";
 import { api } from "../services/api";
+import { notify } from "../services/uiFeedback";
 
 const translateApptType = (type: string, lang: "es" | "qu") => {
   if (!type) return lang === "es" ? "Consulta General" : "Hampiy Rimana";
@@ -58,6 +59,7 @@ export default function DoctorDashboard({
 }: DashboardProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const user = useAuthStore((state) => state.user);
+  const role = useAuthStore((state) => state.role);
   const setIsCallActive = useAuthStore((state) => state.setIsCallActive);
   const setLogout = useAuthStore((state) => state.setLogout);
   
@@ -70,9 +72,20 @@ export default function DoctorDashboard({
 
   // Quick Record state
   const [quickNotes, setQuickNotes] = useState("");
-  const [quickPrescriptions, setQuickPrescriptions] = useState<Array<{ name: string; dosage: string; duration: string }>>([
-    { name: "", dosage: "", duration: "" }
+  const [quickPrescriptions, setQuickPrescriptions] = useState<Array<{ 
+    name: string; 
+    dosage: string; 
+    duration: string;
+    doseQty?: string; 
+    doseFreq?: string; 
+    durQty?: string; 
+    durUnit?: string;
+  }>>([
+    { name: "", dosage: "", duration: "", doseQty: "1 tableta", doseFreq: "cada 8 horas", durQty: "7", durUnit: "días" }
   ]);
+  const [suspendedTreatments, setSuspendedTreatments] = useState<Array<{ name: string; reason: string }>>([]);
+  const [showSuspensionModal, setShowSuspensionModal] = useState<any | null>(null);
+  const [suspensionReason, setSuspensionReason] = useState("");
   const [isSavingRecord, setIsSavingRecord] = useState(false);
   const [medicinesCatalog, setMedicinesCatalog] = useState<Array<{ id: string; name: string; category: string }>>([]);
   const [focusedPrescIdx, setFocusedPrescIdx] = useState<number | null>(null);
@@ -120,6 +133,11 @@ export default function DoctorDashboard({
           }
         } catch (e: any) {
           console.error(e);
+          if (e.message?.toLowerCase().includes("sesión")) {
+            setQueuePatients([]);
+            setQueueError(null);
+            return;
+          }
           setQueueError(e.message || "Error cargando la cola");
         }
       }, 3000);
@@ -139,7 +157,7 @@ export default function DoctorDashboard({
       setIsCallActive(true);
     } catch (e) {
       console.error(e);
-      alert("Error aceptando la llamada.");
+      notify({ type: "error", title: "No se pudo iniciar la llamada", message: "La cola de telemedicina no respondió correctamente." });
     }
   };
 
@@ -154,7 +172,8 @@ export default function DoctorDashboard({
     setActiveCallRoom(null);
     setActiveCallPatientId(null);
     setQuickNotes("");
-    setQuickPrescriptions([{ name: "", dosage: "", duration: "" }]);
+    setQuickPrescriptions([{ name: "", dosage: "", duration: "", doseQty: "1 tableta", doseFreq: "cada 8 horas", durQty: "7", durUnit: "días" }]);
+    setSuspendedTreatments([]);
     setShowFullRecord(false);
     setIsCallActive(false);
   };
@@ -165,6 +184,14 @@ export default function DoctorDashboard({
     setIsSavingRecord(true);
     try {
       const token = localStorage.getItem("sumaq_token");
+      
+      let finalNotes = quickNotes;
+      if (suspendedTreatments.length > 0) {
+        const suspensionText = "🔴 TRATAMIENTOS SUSPENDIDOS EN ESTA CONSULTA:\n" + 
+          suspendedTreatments.map(t => `- ${t.name} | Motivo: ${t.reason}`).join("\n") + "\n\n";
+        finalNotes = suspensionText + quickNotes;
+      }
+
       const res = await fetch(`/api/patients/${activeCallPatientId}/consultations`, {
         method: "POST",
         headers: { 
@@ -174,19 +201,27 @@ export default function DoctorDashboard({
         body: JSON.stringify({
           cie10Code: "Z00.0",
           diagnosisTitle: "Consulta por Telemedicina",
-          notes: quickNotes,
+          notes: finalNotes,
           prescriptions: quickPrescriptions
             .filter(p => p.name.trim() !== "")
-            .map(p => ({
-              name: p.name.trim(),
-              dosage: p.dosage.trim() || "Según indicaciones",
-              duration: p.duration.trim() || "Variable"
-            }))
+            .map(p => {
+              const dosageStr = p.doseQty && p.doseFreq 
+                ? `${p.doseQty} ${p.doseFreq}` 
+                : (p.dosage || "Según indicaciones");
+              const durationStr = p.durQty && p.durUnit 
+                ? `${p.durQty} ${p.durUnit}` 
+                : (p.duration || "Variable");
+              return {
+                name: p.name.trim(),
+                dosage: dosageStr.trim(),
+                duration: durationStr.trim()
+              };
+            })
         })
       });
       
       if (res.ok) {
-        alert("¡Expediente guardado exitosamente!");
+        notify({ type: "success", title: "Expediente guardado", message: "La consulta de telemedicina quedó registrada." });
         try {
           await api.leaveQueue(activeCallPatientId);
         } catch (e) {
@@ -195,11 +230,11 @@ export default function DoctorDashboard({
         handleEndCall(); // Cuelga la llamada y limpia el formulario
       } else {
         const errorData = await res.json().catch(() => ({}));
-        alert(`Error al guardar el expediente en el servidor: ${errorData.error || res.statusText}`);
+        notify({ type: "error", title: "No se pudo guardar", message: errorData.error || res.statusText });
       }
     } catch (e: any) {
       console.error(e);
-      alert(`Error de red al intentar guardar el expediente: ${e.message}`);
+      notify({ type: "error", title: "Error de red", message: e.message || "No fue posible guardar el expediente." });
     } finally {
       setIsSavingRecord(false);
     }
@@ -306,12 +341,14 @@ export default function DoctorDashboard({
             </div>
             
             <div className="flex items-center gap-3">
-              <button 
-                onClick={onOpenRegisterModal}
-                className="bg-blue-500 hover:bg-blue-400 text-white border border-blue-400/50 backdrop-blur-md px-3.5 py-2 rounded-2xl text-xs font-bold shadow-md transition-all duration-300 hover:scale-105 flex items-center gap-2"
-              >
-                <Plus className="w-3.5 h-3.5" /> Registrar
-              </button>
+              {role === "administrator" && (
+                <button 
+                  onClick={onOpenRegisterModal}
+                  className="bg-blue-500 hover:bg-blue-400 text-white border border-blue-400/50 backdrop-blur-md px-3.5 py-2 rounded-2xl text-xs font-bold shadow-md transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                >
+                  <UserPlus className="w-3.5 h-3.5" /> Registrar
+                </button>
+              )}
               <button 
                 onClick={() => onSetLanguage(language === "es" ? "qu" : "es")}
                 className="bg-cyan-700/50 hover:bg-cyan-600 text-white border border-cyan-500/30 backdrop-blur-md px-3.5 py-2 rounded-2xl text-xs font-bold shadow-md transition-all duration-300 hover:scale-105 flex items-center gap-2 whitespace-nowrap"
@@ -383,7 +420,7 @@ export default function DoctorDashboard({
                 }`}
               >
                 <span className="flex items-center justify-center gap-1.5">
-                  <FolderLock className="w-4 h-4" /> Ficha & Receta
+                  <ClipboardList className="w-4 h-4" /> Ficha & Receta
                 </span>
               </button>
             </div>
@@ -404,7 +441,7 @@ export default function DoctorDashboard({
               activeMobileTab === "record" ? "flex" : "hidden lg:flex"
             }`}>
               <div className="p-4 bg-blue-50 border-b border-blue-100 flex justify-between items-center">
-                <span className="font-bold text-blue-800 flex items-center gap-2"><FolderLock className="w-5 h-5"/> Historial Clínico Rápido</span>
+                <span className="font-bold text-blue-800 flex items-center gap-2"><ClipboardList className="w-5 h-5"/> Historial Clínico Rápido</span>
                 <button onClick={() => setShowFullRecord(true)} className="text-xs bg-white border border-blue-200 px-3 py-1.5 rounded-lg text-blue-700 font-bold hover:bg-blue-100 shadow-sm transition-colors">
                   Ver Expediente Completo
                 </button>
@@ -412,6 +449,67 @@ export default function DoctorDashboard({
               <div className="p-6 flex-1 overflow-y-auto beautiful-scrollbar font-sans text-sm">
                 <p className="text-slate-500 mb-6 font-medium">Paciente ID: <span className="font-bold text-slate-700">{activeCallPatientId}</span></p>
                 
+                {/* Tratamientos Médicos Activos */}
+                {(() => {
+                  const activePatient = patients.find(p => p.id === activeCallPatientId);
+                  if (!activePatient) return null;
+
+                  // Get all previous prescriptions
+                  const allPastPrescriptions = activePatient.consultations?.flatMap(c => 
+                    c.prescriptions.map(p => ({ ...p, date: c.date }))
+                  ) || [];
+
+                  return (
+                    <div className="mb-6 bg-slate-55 rounded-2xl p-4 border border-slate-200">
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                        <Pill className="w-4 h-4 text-emerald-600 animate-pulse" />
+                        Tratamiento Actual (Consultas Previas)
+                      </label>
+                      {allPastPrescriptions.length === 0 ? (
+                        <p className="text-xs text-slate-400 italic">No se registran tratamientos previos en el expediente.</p>
+                      ) : (
+                        <div className="flex flex-col gap-2.5 max-h-[180px] overflow-y-auto pr-1 beautiful-scrollbar">
+                          {allPastPrescriptions.map((presc: any, pIdx: number) => {
+                            const isSuspended = suspendedTreatments.some(t => t.name === presc.name);
+                            return (
+                              <div key={pIdx} className="bg-white border border-slate-150 p-3 rounded-xl flex flex-col gap-1.5 shadow-sm">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <span className={`text-xs font-bold text-slate-700 ${isSuspended ? "line-through text-slate-400 font-medium" : ""}`}>
+                                      {presc.name}
+                                    </span>
+                                    <div className="text-[10px] text-slate-500 font-medium mt-0.5">
+                                      Dosis: {presc.dosage} | Duración: {presc.duration}
+                                    </div>
+                                  </div>
+                                  {!isSuspended ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowSuspensionModal(presc)}
+                                      className="text-[10px] bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer shrink-0"
+                                    >
+                                      Cortar
+                                    </button>
+                                  ) : (
+                                    <span className="text-[9px] bg-red-50 text-red-600 border border-red-200 font-black uppercase px-2 py-0.5 rounded-lg shrink-0">
+                                      Suspendido
+                                    </span>
+                                  )}
+                                </div>
+                                {isSuspended && (
+                                  <div className="text-[10px] text-red-700 bg-red-50/50 px-2.5 py-1.5 rounded-lg border border-red-200 font-semibold italic">
+                                    Motivo: {suspendedTreatments.find(t => t.name === presc.name)?.reason}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Notas de la Consulta (Tiempo Real)</label>
                 <textarea 
                   value={quickNotes}
@@ -425,7 +523,7 @@ export default function DoctorDashboard({
                     Prescripción Médica (Medicamentos)
                   </label>
                   <span className="text-blue-600 text-[11px] font-bold flex items-center gap-1">
-                    <Award className="w-3.5 h-3.5"/> Traducción IA Automática
+                    <Languages className="w-3.5 h-3.5"/> Traducción IA Automática
                   </span>
                 </div>
 
@@ -491,29 +589,81 @@ export default function DoctorDashboard({
                         </div>
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-2 pl-7">
-                        <input
-                          type="text"
-                          placeholder="Dosis (ej: 1 tab cada 8h)"
-                          value={presc.dosage}
-                          onChange={(e) => {
-                            const newPrescs = [...quickPrescriptions];
-                            newPrescs[idx].dosage = e.target.value;
-                            setQuickPrescriptions(newPrescs);
-                          }}
-                          className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Duración (ej: 7 días)"
-                          value={presc.duration}
-                          onChange={(e) => {
-                            const newPrescs = [...quickPrescriptions];
-                            newPrescs[idx].duration = e.target.value;
-                            setQuickPrescriptions(newPrescs);
-                          }}
-                          className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                        />
+                      <div className="flex flex-col gap-2 pl-7 mt-1">
+                        {/* Dosis (Cantidad + Frecuencia) */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <span className="text-[9px] font-bold text-slate-400 block mb-0.5">Dosis (Cantidad)</span>
+                            <input
+                              type="text"
+                              placeholder="Ej: 1 tableta / 5ml"
+                              value={presc.doseQty || ""}
+                              onChange={(e) => {
+                                const newPrescs = [...quickPrescriptions];
+                                newPrescs[idx].doseQty = e.target.value;
+                                setQuickPrescriptions(newPrescs);
+                              }}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-semibold text-slate-700"
+                            />
+                          </div>
+                          <div>
+                            <span className="text-[9px] font-bold text-slate-400 block mb-0.5">Frecuencia</span>
+                            <select
+                              value={presc.doseFreq || "cada 8 horas"}
+                              onChange={(e) => {
+                                const newPrescs = [...quickPrescriptions];
+                                newPrescs[idx].doseFreq = e.target.value;
+                                setQuickPrescriptions(newPrescs);
+                              }}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all cursor-pointer font-semibold text-slate-750"
+                            >
+                              <option value="cada 4 horas">cada 4 horas</option>
+                              <option value="cada 6 horas">cada 6 horas</option>
+                              <option value="cada 8 horas">cada 8 horas</option>
+                              <option value="cada 12 horas">cada 12 horas</option>
+                              <option value="cada 24 horas (una al día)">cada 24 horas (al día)</option>
+                              <option value="con cada comida">con cada comida</option>
+                              <option value="en ayunas">en ayunas</option>
+                              <option value="antes de acostarse">antes de acostarse</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Duración (Cantidad + Unidad) */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <span className="text-[9px] font-bold text-slate-400 block mb-0.5">Duración (Número)</span>
+                            <input
+                              type="number"
+                              min="1"
+                              placeholder="Ej: 7"
+                              value={presc.durQty || ""}
+                              onChange={(e) => {
+                                const newPrescs = [...quickPrescriptions];
+                                newPrescs[idx].durQty = e.target.value;
+                                setQuickPrescriptions(newPrescs);
+                              }}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-semibold text-slate-700"
+                            />
+                          </div>
+                          <div>
+                            <span className="text-[9px] font-bold text-slate-400 block mb-0.5">Unidad de Tiempo</span>
+                            <select
+                              value={presc.durUnit || "días"}
+                              onChange={(e) => {
+                                const newPrescs = [...quickPrescriptions];
+                                newPrescs[idx].durUnit = e.target.value;
+                                setQuickPrescriptions(newPrescs);
+                              }}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all cursor-pointer font-semibold text-slate-750"
+                            >
+                              <option value="días">días</option>
+                              <option value="semanas">semanas</option>
+                              <option value="meses">meses</option>
+                              <option value="dosis única">dosis única</option>
+                            </select>
+                          </div>
+                        </div>
                       </div>
 
                       {quickPrescriptions.length > 1 && (
@@ -535,7 +685,7 @@ export default function DoctorDashboard({
 
                 <button
                   type="button"
-                  onClick={() => setQuickPrescriptions([...quickPrescriptions, { name: "", dosage: "", duration: "" }])}
+                  onClick={() => setQuickPrescriptions([...quickPrescriptions, { name: "", dosage: "", duration: "", doseQty: "1 tableta", doseFreq: "cada 8 horas", durQty: "7", durUnit: "días" }])}
                   className="w-full mt-3 flex items-center justify-center gap-1.5 py-2 px-4 border border-dashed border-slate-300 hover:border-blue-400 hover:text-blue-600 rounded-xl text-xs font-bold text-slate-500 bg-white hover:bg-blue-50/20 shadow-sm transition-all"
                 >
                   <Plus className="w-4 h-4"/> Agregar Medicamento
@@ -764,8 +914,9 @@ export default function DoctorDashboard({
                                       </button>
                                       <button 
                                         onClick={() => onSelectPatient(appt.patientId)}
-                                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center cursor-pointer border border-slate-200/60"
+                                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200/60"
                                       >
+                                        <ClipboardList className="w-3.5 h-3.5" />
                                         {language === "es" ? "Ver Ficha" : "Qillqata qhaway"}
                                       </button>
                                     </div>
@@ -945,9 +1096,10 @@ export default function DoctorDashboard({
                                             </button>
                                             <button 
                                               onClick={() => onSelectPatient(appt.patientId)}
-                                              className="bg-slate-200 hover:bg-slate-300 text-slate-700 text-[11px] font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center cursor-pointer whitespace-nowrap"
+                                              className="bg-slate-200 hover:bg-slate-300 text-slate-700 text-[11px] font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
                                               title="Ver Ficha Clínica"
                                             >
+                                              <ClipboardList className="w-3.5 h-3.5" />
                                               {language === "es" ? "Ver Ficha" : "Qillqata qhaway"}
                                             </button>
                                           </div>
@@ -1153,14 +1305,16 @@ export default function DoctorDashboard({
                 )}
 
                 {/* Botón de Registro de Pacientes en la base */}
-                <div className="p-4 border-t border-slate-200 bg-slate-50 text-center flex justify-between items-center mt-auto">
-                  <button 
-                    onClick={onOpenRegisterModal}
-                    className="flex items-center gap-1 text-xs font-bold text-blue-700 hover:text-blue-800 transition-colors hover:underline cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" /> {language === "es" ? "Registrar Nuevo Paciente" : "Mosoq pacienteta qillqay"}
-                  </button>
-                </div>
+                {role === "administrator" && (
+                  <div className="p-4 border-t border-slate-200 bg-slate-50 text-center flex justify-between items-center mt-auto">
+                    <button 
+                      onClick={onOpenRegisterModal}
+                      className="flex items-center gap-1 text-xs font-bold text-blue-700 hover:text-blue-800 transition-colors hover:underline cursor-pointer"
+                    >
+                      <UserPlus className="w-4 h-4" /> {language === "es" ? "Registrar Nuevo Paciente" : "Mosoq pacienteta qillqay"}
+                    </button>
+                  </div>
+                )}
               </section>
             </div>
           </div>
@@ -1177,6 +1331,63 @@ export default function DoctorDashboard({
               onBack={() => setShowFullRecord(false)}
               onRefreshPatients={() => {}} 
             />
+          </div>
+        </div>
+      )}
+
+      {/* Modal for Treatment Suspension (Cortar) */}
+      {showSuspensionModal && (
+        <div className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm flex justify-center items-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl flex flex-col gap-4 animate-scale-up">
+            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-rose-500 animate-pulse" />
+              {language === "es" ? "Cortar / Suspender Tratamiento" : "Hampiy p'itiy"}
+            </h3>
+            <p className="text-xs text-slate-655 leading-relaxed font-semibold">
+              {language === "es" 
+                ? `¿Estás seguro de suspender el medicamento "${showSuspensionModal.name}" del tratamiento del paciente?`
+                : `Hampita "${showSuspensionModal.name}" p'itinkichu?`}
+            </p>
+            
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                {language === "es" ? "Justificación de la Suspensión (Obligatorio)" : "Imarayku p'itisqa qillqana"}
+              </label>
+              <textarea
+                value={suspensionReason}
+                onChange={(e) => setSuspensionReason(e.target.value)}
+                placeholder={language === "es" ? "Ej: Presenta sarpullido / Le provoca insomnio / Ya no es necesario..." : "Imarayku..."}
+                className="w-full bg-slate-50 border border-slate-250 rounded-xl p-3 text-xs min-h-[90px] focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-slate-700 font-semibold"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2.5 mt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSuspensionModal(null);
+                  setSuspensionReason("");
+                }}
+                className="px-4 py-2 text-xs font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl cursor-pointer transition-colors"
+              >
+                {language === "es" ? "Cancelar" : "Ama"}
+              </button>
+              <button
+                type="button"
+                disabled={!suspensionReason.trim()}
+                onClick={() => {
+                  setSuspendedTreatments([
+                    ...suspendedTreatments,
+                    { name: showSuspensionModal.name, reason: suspensionReason }
+                  ]);
+                  setShowSuspensionModal(null);
+                  setSuspensionReason("");
+                }}
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 rounded-xl cursor-pointer transition-colors"
+              >
+                {language === "es" ? "Confirmar Suspensión" : "P'itiy ari"}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { Hospital, X } from "lucide-react";
+import { UserPlus, X } from "lucide-react";
 import { api } from "../services/api";
+import { notify } from "../services/uiFeedback";
 
 export default function RegisterModal({ 
   onClose, 
@@ -17,7 +18,7 @@ export default function RegisterModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.dni) {
-      alert("Por favor ingrese Nombre y DNI.");
+      notify({ type: "warning", title: "Datos incompletos", message: "Ingresa nombre completo y DNI para registrar al paciente." });
       return;
     }
     const payload = {
@@ -26,10 +27,11 @@ export default function RegisterModal({
     };
     try {
       await api.registerPatient(payload);
+      notify({ type: "success", title: "Paciente registrado", message: "La historia clínica fue creada correctamente." });
       onSuccess();
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "Error registrando paciente.");
+      notify({ type: "error", title: "No se pudo registrar", message: err.message || "Revisa los datos e intenta nuevamente." });
     }
   };
 
@@ -38,7 +40,7 @@ export default function RegisterModal({
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl border border-slate-100 overflow-hidden font-sans transition-all duration-300">
         <div className="p-5 bg-slate-50 border-b border-slate-200/60 flex justify-between items-center">
           <h3 className="text-base md:text-lg font-bold font-headline text-primary flex items-center gap-2">
-            <Hospital className="w-5 h-5 text-secondary" /> Registrar Nuevo Paciente
+            <UserPlus className="w-5 h-5 text-secondary" /> Registrar Nuevo Paciente
           </h3>
           <button onClick={onClose} className="p-1.5 hover:bg-slate-200 rounded-xl text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"><X className="w-5 h-5" /></button>
         </div>

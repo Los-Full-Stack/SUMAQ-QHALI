@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Language } from "../types";
-import { HeartPulse, Globe, WifiOff, Cpu, DoorOpen, X, UserCheck, Stethoscope } from "lucide-react";
+import { Globe, DoorOpen, X, UserCheck, Stethoscope } from "lucide-react";
 
 interface LandingProps {
   language: Language;
@@ -104,11 +104,11 @@ export default function BannerLanding({ language, onSetLanguage, onLogin }: Land
   };
 
   return (
-    <div className="flex-grow flex flex-col bg-[#F8FAFC]">
-      <nav className="sticky top-0 z-40 flex justify-between items-center w-full px-4 md:px-10 py-3 bg-white shadow-sm border-b border-gray-200">
+    <div className="h-screen overflow-hidden flex flex-col bg-[#F8FAFC]">
+      <nav className="z-40 flex justify-between items-center w-full px-4 md:px-10 py-3 bg-white shadow-sm border-b border-gray-200 shrink-0">
         <div className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-lg bg-blue-600 text-white flex items-center justify-center p-1.5 overflow-hidden">
-            <img src="/logo.svg" alt="Sumaq Qhali" className="w-full h-full object-contain" style={{ filter: "brightness(0) invert(1)" }} />
+          <div className="w-10 h-10 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-sm">
+            <Stethoscope className="w-6 h-6 text-white" />
           </div>
           <div>
             <h1 className="text-xl font-extrabold text-slate-800 font-headline">SUMAQ QHALI</h1>
@@ -136,10 +136,10 @@ export default function BannerLanding({ language, onSetLanguage, onLogin }: Land
       </nav>
 
       {/* Hero Section */}
-      <section className="relative w-full overflow-hidden bg-white border-b border-gray-100">
-        <div className="max-w-[1280px] mx-auto px-6 md:px-10 py-16 md:py-24 flex flex-col lg:flex-row items-center gap-12">
+      <section className="relative w-full overflow-hidden bg-white border-b border-gray-100 flex-1 min-h-0">
+        <div className="max-w-[1280px] mx-auto h-full px-6 md:px-10 py-8 md:py-10 flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
           <div className="flex-1 flex flex-col gap-6 z-10">
-            <span className="w-fit bg-blue-50 border border-blue-200 text-blue-700 text-xs px-4 py-1.5 rounded-full font-bold shadow-sm">
+            <span className="hidden">
               ✨ Portal Bilingüe de Salud v2.4
             </span>
             <h1 className="text-4xl md:text-6xl font-black text-slate-900 max-w-2xl font-headline tracking-tight leading-[1.1]">
@@ -153,25 +153,25 @@ export default function BannerLanding({ language, onSetLanguage, onLogin }: Land
                 onClick={() => setShowAuthModal(true)}
                 className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-8 py-3.5 rounded-xl shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center gap-2 hover:-translate-y-0.5 cursor-pointer"
               >
-                <HeartPulse className="w-4 h-4 text-blue-100" />
+                <DoorOpen className="w-4 h-4 text-blue-100" />
                 {texts.btnStart}
               </button>
             </div>
           </div>
 
-          <div className="flex-1 relative w-full h-[360px] md:h-[480px] rounded-3xl overflow-hidden shadow-2xl border border-gray-100 group">
+          <div className="flex-1 relative w-full h-[300px] md:h-[min(420px,calc(100vh-12rem))] rounded-3xl overflow-hidden shadow-2xl border border-gray-100 group">
             <div className="absolute inset-0 w-full h-full bg-gradient-to-tr from-slate-900 via-[#026783] to-[#00355F] flex flex-col items-center justify-center p-6 text-center select-none">
               {/* Graphic element */}
               <div className="relative w-32 h-32 flex items-center justify-center mb-6">
                 <div className="absolute inset-0 bg-cyan-400/15 rounded-full animate-ping"></div>
                 <div className="absolute inset-2 bg-blue-500/20 rounded-full animate-pulse"></div>
                 <div className="relative w-20 h-20 bg-gradient-to-tr from-cyan-400 to-blue-500 rounded-full flex items-center justify-center shadow-lg shadow-cyan-500/20">
-                  <HeartPulse className="w-10 h-10 text-white" />
+                  <Stethoscope className="w-10 h-10 text-white" />
                 </div>
               </div>
-              <h4 className="text-xl font-bold font-headline text-white tracking-wide">Red Andina de Telemedicina</h4>
+              <h4 className="text-xl font-bold font-headline text-white tracking-wide">Red Medica Andina de Telemedicina</h4>
               <p className="text-cyan-205 text-xs mt-2 max-w-xs leading-relaxed font-sans opacity-90">
-                Interconectando comunidades rurales del Cusco con personal de salud bilingüe y tecnología avanzada.
+                Medicos bilingues conectados para atender, orientar y dar seguimiento clinico a comunidades rurales del Cusco.
               </p>
               
               {/* Decorative SVG Mountain silhouette inside the card */}

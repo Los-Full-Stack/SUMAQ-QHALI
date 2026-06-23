@@ -9,6 +9,7 @@ import PatientClinicalRecord from "./components/PatientClinicalRecord";
 import AdministratorPanel from "./components/AdministratorPanel";
 import PatientPortal from "./components/PatientPortal";
 import RegisterModal from "./components/RegisterModal";
+import FeedbackCenter from "./components/FeedbackCenter";
 
 import { Patient, Appointment, RecentActivity, Language } from "./types";
 
@@ -128,6 +129,7 @@ export default function App() {
             onSuccess={() => { setIsRegModalOpen(false); fetchAllData(); }} 
           />
         )}
+        <FeedbackCenter />
       </div>
     </BrowserRouter>
   );

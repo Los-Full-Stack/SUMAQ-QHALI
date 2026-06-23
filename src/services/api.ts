@@ -1,3 +1,5 @@
+import { useAuthStore } from "../store/useAuthStore";
+
 const getHeaders = () => {
   const token = localStorage.getItem("sumaq_token");
   return {
@@ -6,21 +8,34 @@ const getHeaders = () => {
   };
 };
 
+const handleAuthError = async (res: Response) => {
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    useAuthStore.getState().setLogout();
+    throw new Error(data.error || "Sesión expirada. Inicia sesión nuevamente.");
+  }
+  return data;
+};
+
 export const api = {
   getPatients: async () => {
     const res = await fetch("/api/patients", { headers: getHeaders() });
+    if (res.status === 401) return handleAuthError(res);
     return res.ok ? res.json() : [];
   },
   getAppointments: async () => {
     const res = await fetch("/api/appointments", { headers: getHeaders() });
+    if (res.status === 401) return handleAuthError(res);
     return res.ok ? res.json() : [];
   },
   getRecentActivities: async () => {
     const res = await fetch("/api/recent-activities", { headers: getHeaders() });
+    if (res.status === 401) return handleAuthError(res);
     return res.ok ? res.json() : [];
   },
   getPatientById: async (id: string) => {
     const res = await fetch(`/api/patients/${id}`, { headers: getHeaders() });
+    if (res.status === 401) return handleAuthError(res);
     return res.ok ? res.json() : null;
   },
   registerPatient: async (data: any) => {
@@ -48,6 +63,7 @@ export const api = {
       headers: getHeaders(),
       body: JSON.stringify({ patientId, name, location })
     });
+    if (res.status === 401) return handleAuthError(res);
     return res.json();
   },
   getQueueStatus: async (patientId: string) => {
@@ -55,6 +71,7 @@ export const api = {
       headers: getHeaders(),
       cache: 'no-store'
     });
+    if (res.status === 401) return handleAuthError(res);
     return res.ok ? res.json() : { status: 'none', error: 'fetch failed' };
   },
   acceptQueue: async (patientId: string, doctorName: string) => {
@@ -63,6 +80,7 @@ export const api = {
       headers: getHeaders(),
       body: JSON.stringify({ patientId, doctorName })
     });
+    if (res.status === 401) return handleAuthError(res);
     return res.json();
   },
   getQueue: async () => {
@@ -70,7 +88,7 @@ export const api = {
       headers: getHeaders(),
       cache: 'no-store'
     });
-    const data = await res.json();
+    const data = await handleAuthError(res);
     if (!res.ok) throw new Error(data.error || "Failed to fetch queue");
     return data;
   },
@@ -80,10 +98,12 @@ export const api = {
       headers: getHeaders(),
       body: JSON.stringify({ patientId })
     });
+    if (res.status === 401) return handleAuthError(res);
     return res.json();
   },
   getShifts: async () => {
     const res = await fetch("/api/admin/shifts", { headers: getHeaders() });
+    if (res.status === 401) return handleAuthError(res);
     return res.ok ? res.json() : [];
   },
   addShift: async (data: any) => {
@@ -107,13 +127,13 @@ export const api = {
   },
   getAgentReports: async () => {
     const res = await fetch("/api/admin/agent-reports", { headers: getHeaders() });
-    const resData = await res.json();
+    const resData = await handleAuthError(res);
     if (!res.ok) throw new Error(resData.error || "Failed to fetch reports list");
     return resData;
   },
   getAgentReportById: async (id: string) => {
     const res = await fetch(`/api/admin/agent-reports/${id}`, { headers: getHeaders() });
-    const resData = await res.json();
+    const resData = await handleAuthError(res);
     if (!res.ok) throw new Error(resData.error || "Failed to fetch report detail");
     return resData;
   },
