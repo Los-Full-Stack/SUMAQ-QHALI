@@ -34,7 +34,10 @@ export const api = {
     return res.ok ? res.json() : [];
   },
   getPatientById: async (id: string) => {
-    const res = await fetch(`/api/patients/${id}`, { headers: getHeaders() });
+    const res = await fetch(`/api/patients/${id}?t=${Date.now()}`, {
+      headers: getHeaders(),
+      cache: "no-store"
+    });
     if (res.status === 401) return handleAuthError(res);
     return res.ok ? res.json() : null;
   },

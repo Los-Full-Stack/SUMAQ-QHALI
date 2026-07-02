@@ -116,7 +116,7 @@ export default function App() {
               } />
 
               <Route path="/patient" element={
-                (role === "patient_portal" || role === "administrator") ? <PatientPortal language={language} onSetLanguage={setLanguage} /> : <Navigate to="/" replace />
+                role === "patient_portal" ? <PatientPortal language={language} onSetLanguage={setLanguage} /> : <Navigate to="/" replace />
               } />
 
               <Route path="*" element={<Navigate to="/" replace />} />

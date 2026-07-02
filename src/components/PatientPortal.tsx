@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { UserCheck, Heart, X, CalendarClock, AlertCircle, ActivitySquare, FileText, MapPin, Droplets, Clock, LogOut, Pill, Globe, Video, ChevronLeft, ChevronRight, MessageSquare, Send, Sparkles, User } from "lucide-react";
+import { UserCheck, Heart, X, CalendarClock, AlertCircle, ActivitySquare, FileText, MapPin, Droplets, Clock, LogOut, Pill, Globe, Video, ChevronLeft, ChevronRight, MessageSquare, Send, Sparkles, User, Check } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import { api } from "../services/api";
 import JitsiCall from "./JitsiCall";
@@ -28,6 +28,53 @@ const translateApptType = (type: string, lang: "es" | "qu") => {
   return type;
 };
 
+const formatTimelineDate = (dateStr: string, lang: "es" | "qu") => {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  if (lang === "es") {
+    return d.toLocaleDateString("es-ES", { year: 'numeric', month: 'long', day: 'numeric' });
+  }
+  const day = d.getDate();
+  const year = d.getFullYear();
+  const monthsQu = [
+    "Qulla Puquy", "Hatun Puquy", "Pauqar Waray", "Ayriwa", "Aymuray", "Inti Raymi",
+    "Anta Sitwa", "Qhapaq Sitwa", "Uma Raymi", "Kantaray", "Aya Marqa", "Qhapaq Raymi"
+  ];
+  const monthName = monthsQu[d.getMonth()];
+  return `${day} p'unchaw ${monthName} killapi, ${year} wata`;
+};
+
+const translateDiagnosisTitle = (title: string, lang: "es" | "qu") => {
+  if (!title) return "";
+  if (lang === "es") return title;
+  const lower = title.toLowerCase().trim();
+  if (lower.includes("hipertensión") || lower.includes("hipertension")) {
+    return "Yawar Ñit'iy Unquy (Hipertensión)";
+  }
+  if (lower.includes("diabetes")) {
+    return "Mishki Yawar Unquy (Diabetes)";
+  }
+  if (lower.includes("varices") || lower.includes("várices")) {
+    return "Chaki Sirk'akunap Punkiriynin (Várices)";
+  }
+  if (lower.includes("renal")) {
+    return "Llamk'ay pisi Rurun Unquy (Enfermedad Renal)";
+  }
+  if (lower.includes("dislipidemia")) {
+    return "Wira Yawar Unquy (Dislipidemia)";
+  }
+  if (lower.includes("telemedicina") || lower.includes("teleconsulta")) {
+    return "Karu Rikuy Hampikuy Rimay (Teleconsulta)";
+  }
+  if (lower.includes("osteoartritis")) {
+    return "Qhunqur Muqu Nanay Unquy (Osteoartritis)";
+  }
+  if (lower.includes("control") || lower.includes("seguimiento")) {
+    return "Qatiqnin Hampikuy Qhaway";
+  }
+  return title;
+};
+
 interface PatientPortalProps {
   language?: "es" | "qu";
   onSetLanguage?: (lang: "es" | "qu") => void;
@@ -48,9 +95,9 @@ const t = {
     active: "Activo",
     blood: "Sangre",
     historyNum: "Expediente",
-    currentTreatment: "Tratamiento Actual",
+    currentTreatment: "Tratamiento Actual (Consultas Previas)",
     duration: "Duración",
-    noMeds: "No hay medicamentos recetados activos.",
+    noMeds: "No se registran tratamientos previos en el expediente.",
     allergies: "Alergias",
     noAllergies: "Sin alergias registradas.",
     conditions: "Condiciones",
@@ -83,9 +130,9 @@ const t = {
     active: "Kawsachkan",
     blood: "Yawar",
     historyNum: "Expediente",
-    currentTreatment: "Kunan Hampikuy",
+    currentTreatment: "Tratamiento Actual (Ñawpaq tapuykuna)",
     duration: "Unaynin",
-    noMeds: "Manam pastillas kanchu.",
+    noMeds: "Mana ñawpaq hampikuna waqaychasqachu kashan.",
     allergies: "Alergias",
     noAllergies: "Manam alergias kanchu.",
     conditions: "Unquykuna",
@@ -109,10 +156,19 @@ const t = {
 export default function PatientPortal({ language = "es", onSetLanguage }: PatientPortalProps) {
   const { portalPatient, setPortalPatient, setLogout } = useAuthStore();
   const [isApptModalOpen, setIsApptModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [selectedConsultationIndex, setSelectedConsultationIndex] = useState(0);
   const [newApptForm, setNewApptForm] = useState({ date: "", time: "", type: "Medicina General" });
   const [myAppointments, setMyAppointments] = useState<any[]>([]);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
+  const [takenMeds, setTakenMeds] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("sq_taken_meds") || "[]");
+    } catch {
+      return [];
+    }
+  });
 
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -273,7 +329,7 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
             // The doctor has finished the consultation and removed the patient from the queue
             setActiveCallRoom(null);
             setIsInQueue(false);
-            // Optional: Refresh patient data to show the new consultation
+            fetchPatientData();
             fetchMyAppointments();
           }
         } catch (e) { console.error(e); }
@@ -308,10 +364,34 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
 
   const dict = t[language];
 
-  // Get active medications from the most recent consultation
-  const activeMeds = portalPatient?.consultations && portalPatient.consultations.length > 0 
-    ? portalPatient.consultations[0].prescriptions || []
+  // Get active medications from all consultations (aggregating prescriptions)
+  const activeMeds = portalPatient?.consultations
+    ? portalPatient.consultations.reduce((acc: any[], cons: any) => {
+        if (cons.prescriptions && cons.prescriptions.length > 0) {
+          cons.prescriptions.forEach((p: any) => {
+            const nextKey = String(p.name || p.dosage || p.id || "").toLowerCase();
+            if (!acc.some(existing => String(existing.name || existing.dosage || existing.id || "").toLowerCase() === nextKey)) {
+              acc.push(p);
+            }
+          });
+        }
+        return acc;
+      }, [])
     : [];
+
+  const getMedicationKey = (med: any) => String(med.name || med.dosage || med.id || "").toLowerCase();
+  const visibleMeds = activeMeds.filter(med => !takenMeds.includes(getMedicationKey(med)));
+
+  const handleMarkAsTaken = (medName: string) => {
+    const updated = [...takenMeds, medName.toLowerCase()];
+    setTakenMeds(updated);
+    localStorage.setItem("sq_taken_meds", JSON.stringify(updated));
+  };
+
+  const handleResetMeds = () => {
+    setTakenMeds([]);
+    localStorage.removeItem("sq_taken_meds");
+  };
 
   const fetchMyAppointments = async () => {
     if (!portalPatient) return;
@@ -563,7 +643,7 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
         <div className="absolute bottom-0 left-10 w-72 h-72 bg-blue-400 opacity-10 rounded-full blur-3xl"></div>
       </div>
 
-      <div className="max-w-[1440px] mx-auto w-full flex flex-col gap-6 px-4 lg:px-10 pt-4 pb-6 z-10 relative">
+      <div className="max-w-[1440px] mx-auto w-full flex flex-col gap-6 px-4 lg:px-10 pt-4 pb-12 z-10 relative">
         
         {/* Header Title Section */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-1">
@@ -602,7 +682,7 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
             {activeCallRoom ? (
               <div className="bg-white rounded-3xl p-4 shadow-xl border border-slate-100 flex flex-col items-center h-[70vh]">
                 <h3 className="text-xl font-bold text-slate-800 mb-4 font-headline flex items-center gap-2"><Video className="text-blue-500"/> {language === "es" ? "Teleconsulta en Vivo" : "Karu Hampi Rimay Kawsaypi"}</h3>
-                <JitsiCall roomName={activeCallRoom} displayName={portalPatient.name} onEndCall={() => setActiveCallRoom(null)} />
+                <JitsiCall roomName={activeCallRoom} displayName={portalPatient.name} onEndCall={() => { setActiveCallRoom(null); fetchPatientData(); }} />
               </div>
             ) : isInQueue ? (
               <div className="bg-white/90 backdrop-blur-md rounded-3xl p-12 shadow-xl border border-white text-center flex flex-col items-center max-w-2xl mx-auto my-10">
@@ -621,10 +701,10 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
             ) : (
               <>
             {/* TOP DASHBOARD WIDGETS (Bento Layout) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch pb-6">
               
               {/* 1. Profile Card */}
-              <div className="lg:col-span-2 md:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex flex-col gap-6 relative overflow-hidden group hover:shadow-md transition-all duration-300">
+              <div className="order-1 lg:col-span-2 md:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex flex-col gap-6 relative overflow-hidden group hover:shadow-md transition-all duration-300">
                 {/* Subtle soft-blue glow background */}
                 <div className="absolute -top-12 -right-12 w-48 h-48 bg-blue-50/40 rounded-full blur-3xl pointer-events-none"></div>
                 <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-slate-50/50 rounded-full blur-2xl pointer-events-none"></div>
@@ -649,7 +729,7 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
                   </div>
                 </div>
 
-                <div className="relative z-10 grid grid-cols-1 sm:grid-cols-3 gap-4 mt-auto">
+                <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4 mt-auto">
                   <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100 flex flex-col gap-1 hover:bg-slate-100/40 transition-colors">
                     <span className="text-[10px] text-slate-450 font-bold uppercase tracking-wider flex items-center gap-1.5"><FileText className="w-3.5 h-3.5 text-slate-400"/> DNI</span>
                     <span className="font-extrabold text-base text-slate-700">{portalPatient.dni}</span>
@@ -662,11 +742,21 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
                     <span className="text-[10px] text-slate-450 font-bold uppercase tracking-wider flex items-center gap-1.5"><FileText className="w-3.5 h-3.5 text-slate-400"/> {dict.historyNum}</span>
                     <span className="font-bold text-sm text-slate-700 font-mono tracking-wider truncate">{portalPatient.medicalHistoryNumber}</span>
                   </div>
+                  <button 
+                    onClick={() => {
+                      setSelectedConsultationIndex(0);
+                      setIsHistoryModalOpen(true);
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl p-4 border border-blue-600 flex flex-col items-center justify-center gap-1.5 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-md hover:shadow-lg text-center"
+                  >
+                    <Heart className="w-5 h-5 text-white animate-pulse" />
+                    <span className="text-[10px] font-black tracking-tight uppercase">{language === "es" ? "Historial Clínico" : "Hampiy Historial"}</span>
+                  </button>
                 </div>
               </div>
 
               {/* 2. Allergies Card */}
-              <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100 flex flex-col gap-4">
+              <div className="order-4 bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100 flex flex-col gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300">
                 <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
                   <div className="p-2 bg-orange-50 text-orange-500 rounded-xl">
                     <AlertCircle className="w-5 h-5" />
@@ -674,7 +764,7 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
                   <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider">{dict.allergies}</h4>
                 </div>
                 
-                <div className="flex-1 flex flex-col gap-2.5 overflow-y-auto max-h-[180px] beautiful-scrollbar">
+                <div className="flex-1 flex flex-col gap-2.5 overflow-y-auto max-h-[220px] beautiful-scrollbar">
                   {portalPatient.allergies?.length > 0 ? (
                     portalPatient.allergies.map((a: any, i: number) => {
                       const isHigh = a.severity === "high" || a.severity === "Alto" || a.severity === "Sinchis";
@@ -711,7 +801,7 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
               </div>
 
               {/* 3. Chronic Conditions Card */}
-              <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100 flex flex-col gap-4">
+              <div className="order-3 bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100 flex flex-col gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300">
                 <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
                   <div className="p-2 bg-blue-50 text-blue-500 rounded-xl">
                     <ActivitySquare className="w-5 h-5" />
@@ -719,7 +809,7 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
                   <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider">{dict.conditions}</h4>
                 </div>
 
-                <div className="flex-1 flex flex-col gap-2 overflow-y-auto max-h-[200px] beautiful-scrollbar">
+                <div className="flex-1 flex flex-col gap-2 overflow-y-auto max-h-[220px] beautiful-scrollbar">
                   {portalPatient.chronicConditions?.length > 0 ? (
                     portalPatient.chronicConditions.map((c: any, i: number) => (
                       <div 
@@ -740,7 +830,7 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
               </div>
 
               {/* 4. Agenda Card */}
-              <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100 flex flex-col gap-4">
+              <div className="order-2 bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100 flex flex-col gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <div className="flex items-center gap-2.5">
                     <div className="p-2 bg-cyan-50 text-cyan-600 rounded-xl">
@@ -767,7 +857,7 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
                   </button>
                 </div>
 
-                <div className="flex-1 flex flex-col gap-3 overflow-y-auto max-h-[160px] beautiful-scrollbar mt-2 pr-1">
+                <div className="flex-1 flex flex-col gap-3 overflow-y-auto max-h-[220px] beautiful-scrollbar mt-2 pr-1">
                   {myAppointments.length > 0 ? (
                     myAppointments.map((appt, i) => {
                       const parts = appt.startTime.split(" ");
@@ -818,26 +908,51 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
               </div>
 
               {/* 5. Active Medications Card */}
-              <div className="bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100 flex flex-col gap-4">
-                <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
-                  <div className="p-2 bg-purple-50 text-purple-600 rounded-xl">
-                    <Pill className="w-5 h-5" />
+              <div className="order-5 bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100 flex flex-col gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-purple-50 text-purple-600 rounded-xl">
+                      <Pill className="w-5 h-5" />
+                    </div>
+                    <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider">{dict.currentTreatment}</h4>
                   </div>
-                  <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider">{dict.currentTreatment}</h4>
+                  {takenMeds.length > 0 && (
+                    <button 
+                      onClick={handleResetMeds}
+                      className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded-lg font-bold transition-all cursor-pointer"
+                    >
+                      🔄 {language === "es" ? "Restablecer" : "Kutichiy"}
+                    </button>
+                  )}
                 </div>
 
-                <div className="flex-1 flex flex-col gap-3 overflow-y-auto max-h-[220px] beautiful-scrollbar pr-1">
-                  {activeMeds.length > 0 ? (
-                    activeMeds.map((med: any, i: number) => (
-                      <div key={i} className="flex flex-col bg-slate-50/60 hover:bg-slate-100/50 border border-slate-150 p-3 rounded-2xl relative overflow-hidden group hover:shadow-sm transition-all">
-                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-purple-350"></div>
-                        <p className="text-xs font-black text-purple-800 leading-tight">{med.name}</p>
-                        <p className="text-[10px] text-slate-600 font-bold mt-1 leading-normal">{med.dosage}</p>
-                        <div className="mt-2 flex items-center justify-between">
-                          <span className="text-[9px] bg-white text-purple-650 px-2 py-0.5 rounded shadow-sm border border-slate-200 font-black uppercase tracking-wider">
-                            {dict.duration}: {med.duration}
-                          </span>
+                <div className="flex-1 flex flex-col gap-2.5 overflow-y-auto max-h-[260px] beautiful-scrollbar pr-1">
+                  {visibleMeds.length > 0 ? (
+                    visibleMeds.map((med: any, i: number) => (
+                      <div key={i} className="flex items-start gap-3 rounded-2xl border border-purple-100 bg-white p-3 shadow-sm transition-all hover:border-purple-200 hover:shadow-md">
+                        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
+                          <Pill className="h-4 w-4" />
                         </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-black text-slate-800 leading-snug break-words">
+                            {med.name || (language === "es" ? "Medicamento indicado" : "Hampi")}
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            <span className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-1 text-[10px] font-bold leading-tight text-slate-650">
+                              {med.dosage || (language === "es" ? "Dosis no registrada" : "Tupuy mana kanchu")}
+                            </span>
+                            <span className="rounded-lg border border-purple-100 bg-purple-50 px-2 py-1 text-[10px] font-black leading-tight text-purple-700">
+                              {dict.duration}: {med.duration || "-"}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleMarkAsTaken(getMedicationKey(med))}
+                          className="shrink-0 rounded-xl border border-emerald-200 bg-emerald-50 p-2 text-emerald-600 shadow-sm transition-all hover:scale-105 hover:bg-emerald-600 hover:text-white cursor-pointer"
+                          title={language === "es" ? "Marcar como tomado" : "Hampita ukyaniña"}
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     ))
                   ) : (
@@ -851,111 +966,35 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
 
             </div>
 
-            {/* BOTTOM SECTION: Consultation History Timeline */}
-            <div className="bg-white rounded-3xl p-6 lg:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col gap-6 w-full">
-              <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                <div className="p-2.5 bg-rose-50 text-rose-500 rounded-2xl">
-                  <Heart className="w-6 h-6" />
-                </div>
-                <h3 className="text-2xl font-black text-slate-800 font-headline tracking-tight">{dict.medicalHistory}</h3>
-              </div>
-              
-              {portalPatient.consultations?.length > 0 ? (
-                <div className="relative border-l-2 border-blue-100 ml-4 lg:ml-6 space-y-10 py-4">
-                  {portalPatient.consultations.map((cons: any, idx: number) => (
-                    <div key={idx} className="relative pl-6 lg:pl-10 group">
-                      {/* Timeline Dot */}
-                      <div className="absolute -left-[11px] top-1 w-5 h-5 rounded-full bg-blue-500 ring-4 ring-white shadow-sm transition-transform group-hover:scale-125 duration-300"></div>
-                      
-                      {/* Date and Diagnosis */}
-                      <div className="flex flex-col mb-4">
-                        <span className="text-xs font-black text-blue-600 tracking-wider uppercase mb-1">
-                          {new Date(cons.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
-                        </span>
-                        <h4 className="text-xl font-bold text-slate-800">{cons.diagnosisTitle}</h4>
-                      </div>
-
-                      {/* Clinical Notes & AI Prescription Card */}
-                      <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-5 md:p-6 shadow-sm hover:shadow-md transition-shadow">
-                        {cons.notes && (
-                          <div className="mb-6">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                              <FileText className="w-3 h-3"/> {dict.medicalNotes}
-                            </p>
-                            <p className="text-sm text-slate-600 font-medium break-words whitespace-pre-wrap leading-relaxed">
-                              {cons.notes}
-                            </p>
-                          </div>
-                        )}
-                        
-                        <div className="bg-white rounded-xl border border-rose-100 p-5 shadow-sm">
-                          <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-                            <Heart className="w-3 h-3"/> {dict.aiIndications}
-                          </p>
-                          <p className="text-sm text-slate-700 leading-relaxed font-medium break-words">
-                            {cons.quechuaSummary ? (
-                              <span className="block whitespace-pre-wrap">{cons.quechuaSummary}</span>
-                            ) : (
-                              <>
-                                Rimaykullayki unqusqanchis, <span className="font-bold text-blue-700">{portalPatient.name}</span>. Hampiy kashan:<br/><br/>
-                                {cons.prescriptions && cons.prescriptions.map((p: any, i: number) => (
-                                  <span key={i} className="flex items-center gap-2 mb-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span> 
-                                    <span className="font-bold">{p.name}:</span> {p.dosage} por {p.duration}.
-                                  </span>
-                                ))}
-                                <span className="block mt-4 p-3 bg-blue-50 text-blue-800 rounded-lg text-xs border border-blue-100">
-                                  <strong>{dict.recommendation}:</strong> Dr. Yawar Quispepa nisqan hina puririnaykipaq sapa tutam suti unkupis kachita qispilla kawsay.
-                                </span>
-                              </>
-                            )}
-                          </p>
-                        </div>
-
-
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 rounded-2xl border border-dashed border-slate-300 p-12 text-center">
-                  <FileText className="w-12 h-12 text-slate-300 mb-4" />
-                  <h4 className="text-lg font-bold text-slate-700 mb-1">{dict.noHistory}</h4>
-                  <p className="text-sm text-slate-500 font-medium max-w-sm">{dict.noHistoryDesc}</p>
-                </div>
-              )}
-            </div>
-
-              </>
-            )}
-
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center p-16 bg-white/80 backdrop-blur-md rounded-3xl border border-white/50 shadow-xl text-center max-w-md mx-auto mt-12 z-10 relative">
-            {loadError ? (
-              <>
-                <div className="w-12 h-12 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mb-6 font-bold text-xl">!</div>
-                <h3 className="text-xl font-bold text-slate-800 mb-2">{language === "es" ? "Error de Sincronización" : "Tinkuchiy Pantay"}</h3>
-                <p className="text-sm text-slate-500 font-medium mb-6 leading-relaxed">{loadError}</p>
-                <div className="flex gap-4">
-                  <button onClick={fetchPatientData} className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md cursor-pointer">
-                    {language === "es" ? "Reintentar" : "Kutimuy Kutipay"}
-                  </button>
-                  <button onClick={() => setLogout()} className="bg-rose-500/20 hover:bg-rose-500 text-rose-700 border border-rose-500/30 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer">
-                    {language === "es" ? "Cerrar Sesión" : "Lluqsiy Sesión"}
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="w-12 h-12 border-4 border-blue-100 border-t-blue-500 rounded-full animate-spin mb-6"></div>
-                <h3 className="text-xl font-bold text-slate-800 mb-2">{dict.connecting}</h3>
-                <p className="text-slate-500 font-medium">{dict.syncing}</p>
-              </>
-            )}
-          </div>
+          </>
         )}
       </div>
+    ) : (
+      <div className="flex flex-col items-center justify-center p-16 bg-white/80 backdrop-blur-md rounded-3xl border border-white/50 shadow-xl text-center max-w-md mx-auto mt-12 z-10 relative">
+        {loadError ? (
+          <>
+            <div className="w-12 h-12 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mb-6 font-bold text-xl">!</div>
+            <h3 className="text-xl font-bold text-slate-800 mb-2">{language === "es" ? "Error de Sincronización" : "Tinkuchiy Pantay"}</h3>
+            <p className="text-sm text-slate-500 font-medium mb-6 leading-relaxed">{loadError}</p>
+            <div className="flex gap-4">
+              <button onClick={fetchPatientData} className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md cursor-pointer">
+                {language === "es" ? "Reintentar" : "Kutimuy Kutipay"}
+              </button>
+              <button onClick={() => setLogout()} className="bg-rose-500/20 hover:bg-rose-500 text-rose-700 border border-rose-500/30 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer">
+                {language === "es" ? "Cerrar Sesión" : "Lluqsiy Sesión"}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="w-12 h-12 border-4 border-blue-100 border-t-blue-500 rounded-full animate-spin mb-6"></div>
+            <h3 className="text-xl font-bold text-slate-800 mb-2">{dict.connecting}</h3>
+            <p className="text-slate-500 font-medium">{dict.syncing}</p>
+          </>
+        )}
+      </div>
+    )}
+  </div>
 
       {/* Modal Nueva Cita */}
       {isApptModalOpen && (
@@ -1116,6 +1155,193 @@ export default function PatientPortal({ language = "es", onSetLanguage }: Patien
                 {dict.confirm}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 6. Medical History Dossier Modal */}
+      {isHistoryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm animate-fade-in font-sans">
+          <div className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl border border-slate-100 flex flex-col h-[80vh] md:h-[75vh] overflow-hidden animate-scale-up">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
+                  <Heart className="w-5 h-5 text-blue-500" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">
+                    {language === "es" ? "Expediente de Salud Digital" : "Hampiy Qillqa Ukhu"}
+                  </h3>
+                  <p className="text-[9px] text-slate-400 font-extrabold uppercase mt-0.5">
+                    {portalPatient.name} • {language === "es" ? "Historial Clínico Completo" : "Lliw Hampikuy Historial"}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsHistoryModalOpen(false)}
+                className="p-1.5 hover:bg-slate-200 text-slate-450 hover:text-slate-700 rounded-xl transition-all cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content - Split Pane */}
+            <div className="flex-grow flex flex-col md:flex-row overflow-hidden">
+              {/* Left Column - List of Consultations */}
+              <div className="w-full md:w-80 border-b md:border-b-0 md:border-r border-slate-100 p-4 overflow-y-auto bg-slate-50/50 flex flex-col gap-3 min-h-[160px] md:min-h-0 select-none shrink-0">
+                <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-widest px-1">
+                  {language === "es" ? "Consultas Médicas" : "Hampiqpa Qhawaynin"}
+                </span>
+                
+                {portalPatient.consultations?.length > 0 ? (
+                  portalPatient.consultations.map((cons: any, idx: number) => {
+                    const isSelected = selectedConsultationIndex === idx;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setSelectedConsultationIndex(idx)}
+                        className={`w-full text-left p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col gap-1.5 ${
+                          isSelected
+                            ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-500/10"
+                            : "bg-white hover:bg-slate-50 border-slate-200 text-slate-700"
+                        }`}
+                      >
+                        <span className={`text-[9px] font-black uppercase tracking-wider ${isSelected ? "text-blue-200" : "text-blue-600"}`}>
+                          {formatTimelineDate(cons.date, language)}
+                        </span>
+                        <h4 className="text-xs font-black tracking-tight leading-tight line-clamp-2">
+                          {translateDiagnosisTitle(cons.diagnosisTitle, language)}
+                        </h4>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <p className="text-xs text-slate-400 font-bold text-center py-8">{language === "es" ? "Sin consultas registradas" : "Mana hampikuy kanchu"}</p>
+                )}
+              </div>
+
+              {/* Right Column - Selected Consultation Details */}
+              <div className="flex-grow p-6 lg:p-8 overflow-y-auto bg-white flex flex-col gap-6">
+                {portalPatient.consultations?.length > 0 ? (() => {
+                  const selectedCons = portalPatient.consultations[selectedConsultationIndex] || portalPatient.consultations[0];
+                  return (
+                    <div className="flex flex-col gap-6 animate-fade-in">
+                      {/* Diagnosis & Code */}
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                        <div className="flex items-center gap-3">
+                          <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl flex-shrink-0">
+                            <Heart className="w-6 h-6 text-blue-600" />
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
+                              {language === "es" ? "Diagnóstico / Consulta" : "Unquy Reqsiy / Hampikuy"}
+                            </span>
+                            <h3 className="text-xl font-black text-slate-800 tracking-tight leading-tight mt-0.5">
+                              {translateDiagnosisTitle(selectedCons.diagnosisTitle, language)}
+                            </h3>
+                          </div>
+                        </div>
+                        <span className="bg-slate-900 text-cyan-200 font-mono text-xs font-bold px-3 py-1.5 rounded-xl uppercase shrink-0 w-fit">
+                          CIE-10: {selectedCons.cie10Code || "Z00.0"}
+                        </span>
+                      </div>
+
+                      {/* Doctor info / Date */}
+                      <div className="text-[11px] text-slate-500 font-semibold flex flex-wrap items-center gap-3">
+                        <span className="bg-slate-100 text-slate-650 px-2.5 py-1 rounded-lg">
+                          👤 {language === "es" ? "Atendido por: " : "Hampiq: "}{selectedCons.createdBy || "Dr. Yawar Quispe"}
+                        </span>
+                        <span className="bg-slate-100 text-slate-650 px-2.5 py-1 rounded-lg">
+                          📅 {formatTimelineDate(selectedCons.date, language)}
+                        </span>
+                      </div>
+
+                      {/* Notes / Recetas Split */}
+                      <div className="flex flex-col gap-5">
+                        {/* Clinical Notes */}
+                        {selectedCons.notes && (
+                          <div className="bg-slate-50/70 border border-slate-100 rounded-2xl p-5 relative overflow-hidden">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 flex items-center gap-2">
+                              <FileText className="w-3.5 h-3.5 text-slate-400"/> {dict.medicalNotes}
+                            </p>
+                            <p className="text-xs text-slate-650 font-medium break-words whitespace-pre-wrap leading-relaxed">
+                              {selectedCons.notes}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Patient Indications */}
+                        {selectedCons.indications && (
+                          <div className="bg-amber-50/40 border border-amber-100/70 rounded-2xl p-5 relative overflow-hidden">
+                            <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-2.5 flex items-center gap-2">
+                              📢 {language === "es" ? "Indicaciones del Médico" : "Hampiqpa Kamachikuyninkuna"}
+                            </p>
+                            <p className="text-xs text-slate-700 font-semibold break-words whitespace-pre-wrap leading-relaxed">
+                              {selectedCons.indications}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* AI / Prescription Card */}
+                        <div className="bg-[#f2fbf6] border border-emerald-100 rounded-2xl p-5 md:p-6 shadow-[0_4px_12px_rgba(240,253,244,0.4)]">
+                          <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-3.5 flex items-center gap-2">
+                            <Sparkles className="w-3.5 h-3.5 text-emerald-500 fill-emerald-500/10"/> {dict.aiIndications}
+                          </p>
+                          <div className="text-xs text-slate-750 leading-relaxed font-medium break-words">
+                            {selectedCons.quechuaSummary ? (
+                              <span className="block whitespace-pre-wrap pl-1">{selectedCons.quechuaSummary}</span>
+                            ) : (
+                              <>
+                                <p className="mb-3">Rimaykullayki unqusqanchis, <span className="font-bold text-emerald-800">{portalPatient.name}</span>. Hampiy kashan:</p>
+                                <div className="flex flex-col gap-1.5 pl-1">
+                                  {selectedCons.prescriptions && selectedCons.prescriptions.map((p: any, i: number) => (
+                                    <span key={i} className="flex items-center gap-2 mb-0.5">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> 
+                                      <span className="font-bold text-slate-800">{p.name}:</span> {p.dosage} ({p.duration}).
+                                    </span>
+                                  ))}
+                                </div>
+                                <span className="block mt-4 p-3.5 bg-white border border-emerald-100 text-slate-700 rounded-xl text-[11px]">
+                                  <strong className="text-emerald-800">{dict.recommendation}:</strong> Dr. Yawar Quispepa nisqan hina puririnaykipaq sapa tutam suti unkupis kachita qispilla kawsay.
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Interactive checklist for medication intake */}
+                        {selectedCons.prescriptions?.length > 0 && (
+                          <div className="mt-2">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                              ✅ {language === "es" ? "Seguimiento de Medicación" : "Hampiy Qatiy"}
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {selectedCons.prescriptions.map((p: any, i: number) => (
+                                <label key={i} className="flex items-start gap-3 p-3.5 bg-white hover:bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer select-none transition-colors">
+                                  <input type="checkbox" className="w-4.5 h-4.5 text-blue-600 border-slate-350 rounded-md focus:ring-blue-500 mt-0.5" />
+                                  <div className="flex flex-col">
+                                    <span className="text-xs font-bold text-slate-800 leading-tight">{p.name}</span>
+                                    <span className="text-[10px] text-slate-500 font-semibold mt-1">{p.dosage} ({p.duration})</span>
+                                  </div>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })() : (
+                  <div className="flex-grow flex flex-col items-center justify-center text-center p-12">
+                    <FileText className="w-12 h-12 text-slate-300 mb-4" />
+                    <h4 className="text-lg font-bold text-slate-700 mb-1">{dict.noHistory}</h4>
+                    <p className="text-sm text-slate-500 font-medium max-w-sm">{dict.noHistoryDesc}</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

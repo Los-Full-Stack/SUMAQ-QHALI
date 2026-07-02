@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
-  Wifi, WifiOff, LayoutDashboard, UserCheck, 
+  Wifi, WifiOff, LayoutDashboard,
   UserPlus, LogOut, Globe, Building2, User 
 } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
@@ -19,7 +19,7 @@ export default function TopNavbar({
   const { role, setRole, portalPatient, user, setLogout } = useAuthStore();
   const [isOffline, setIsOffline] = useState(false);
 
-  const handleNavigation = (newRole: "doctor" | "administrator" | "patient_portal", path: string) => {
+  const handleNavigation = (newRole: "doctor" | "administrator", path: string) => {
     setRole(newRole);
     navigate(path);
   };
@@ -71,13 +71,6 @@ export default function TopNavbar({
             >
               <Building2 className="w-4 h-4 shrink-0" />
               <span className="hidden lg:inline">{language === "es" ? "Panel Admin" : "Kamachiypa Panelnin"}</span>
-            </button>
-            <button 
-              onClick={() => handleNavigation("patient_portal", "/patient")}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer hover:bg-[#002d50]/50 text-slate-300 hover:text-white`}
-            >
-              <UserCheck className="w-4 h-4 shrink-0" />
-              <span className="hidden lg:inline">{language === "es" ? "Portal Pacientes" : "Pacientekunapa Ukhun"}</span>
             </button>
           </div>
         )}

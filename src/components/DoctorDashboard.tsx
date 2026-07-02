@@ -3,7 +3,7 @@ import { Patient, Appointment, RecentActivity, Language } from "../types";
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from "../store/useAuthStore";
 import { 
-  Users, AlertCircle, Video, Calendar, Search, ChevronLeft, ChevronRight, Clock, FileSpreadsheet, Package, Activity, Plus, Hospital, LogOut, HelpCircle, TrendingUp, MapPin, Globe, Signal, Trash2, Pill, ClipboardList, Languages, UserPlus
+  Users, AlertCircle, Video, Calendar, Search, ChevronLeft, ChevronRight, Clock, FileSpreadsheet, Package, Activity, Plus, Hospital, LogOut, HelpCircle, TrendingUp, MapPin, Globe, Signal, Trash2, Pill, ClipboardList, UserPlus
 } from "lucide-react";
 import JitsiCall from "./JitsiCall";
 import PatientClinicalRecord from "./PatientClinicalRecord";
@@ -33,6 +33,24 @@ const translateApptType = (type: string, lang: "es" | "qu") => {
   }
   return type;
 };
+
+const DEFAULT_MEDICINES = [
+  { id: "M_PARACETAMOL_500", name: "Paracetamol 500mg", category: "Occidental" },
+  { id: "M_IBUPROFENO_400", name: "Ibuprofeno 400mg", category: "Occidental" },
+  { id: "M_AMOXICILINA_500", name: "Amoxicilina 500mg", category: "Occidental" },
+  { id: "M_AMOX_CLAV_875", name: "Amoxicilina + Ácido Clavulánico 875/125mg", category: "Occidental" },
+  { id: "M_LOSARTAN_50", name: "Losartán 50mg", category: "Occidental" },
+  { id: "M_METFORMINA_850", name: "Metformina 850mg", category: "Occidental" },
+  { id: "M_OMEPRAZOL_20", name: "Omeprazol 20mg", category: "Occidental" },
+  { id: "M_CETIRIZINA_10", name: "Cetirizina 10mg", category: "Occidental" },
+  { id: "M_SALBUTAMOL_100", name: "Salbutamol Inhalador 100mcg", category: "Occidental" },
+  { id: "M_EUCALIPTO_INF", name: "Infusión de Eucalipto (vías respiratorias)", category: "Tradicional" },
+  { id: "M_MANZANILLA_INF", name: "Infusión de Manzanilla (digestivo/calmante)", category: "Tradicional" },
+  { id: "M_MUNA_INFUSION", name: "Infusión de Muña (digestivo/antiinflamatorio)", category: "Tradicional" },
+];
+
+const normalizeSearch = (value: string) =>
+  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 
 interface DashboardProps {
   language: Language;
@@ -67,12 +85,16 @@ export default function DoctorDashboard({
   // Telemedicine state
   const [isTelemedicineActive, setIsTelemedicineActive] = useState(false);
   const [activeCallPatientId, setActiveCallPatientId] = useState<string | null>(null);
+  const [activeCallPatientDetail, setActiveCallPatientDetail] = useState<Patient | null>(null);
   const [activeCallRoom, setActiveCallRoom] = useState<string | null>(null);
   const [showFullRecord, setShowFullRecord] = useState(false);
   const [activeMobileTab, setActiveMobileTab] = useState<"video" | "record">("video");
 
   // Quick Record state
   const [quickNotes, setQuickNotes] = useState("");
+  const [quickDiagnosisTitle, setQuickDiagnosisTitle] = useState("");
+  const [quickCie10Code, setQuickCie10Code] = useState("");
+  const [quickIndications, setQuickIndications] = useState("");
   const [quickPrescriptions, setQuickPrescriptions] = useState<Array<{ 
     name: string; 
     dosage: string; 
@@ -88,28 +110,66 @@ export default function DoctorDashboard({
   const [showSuspensionModal, setShowSuspensionModal] = useState<any | null>(null);
   const [suspensionReason, setSuspensionReason] = useState("");
   const [isSavingRecord, setIsSavingRecord] = useState(false);
-  const [medicinesCatalog, setMedicinesCatalog] = useState<Array<{ id: string; name: string; category: string }>>([]);
+  const [medicinesCatalog, setMedicinesCatalog] = useState<Array<{ id: string; name: string; category: string }>>(DEFAULT_MEDICINES);
   const [focusedPrescIdx, setFocusedPrescIdx] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchMedicines = async () => {
       try {
         const token = localStorage.getItem("sumaq_token");
-        const res = await fetch("/api/medicines", {
+        const res = await fetch(`/api/medicines?t=${Date.now()}`, {
           headers: {
             ...(token ? { "Authorization": `Bearer ${token}` } : {})
-          }
+          },
+          cache: "no-store"
         });
         if (res.ok) {
           const data = await res.json();
-          setMedicinesCatalog(data);
+          const merged = [...data, ...DEFAULT_MEDICINES].reduce((acc, med) => {
+            if (!acc.some(existing => existing.id === med.id || normalizeSearch(existing.name) === normalizeSearch(med.name))) {
+              acc.push(med);
+            }
+            return acc;
+          }, [] as Array<{ id: string; name: string; category: string }>);
+          setMedicinesCatalog(merged);
         }
       } catch (err) {
         console.error("Error loading medicines catalog:", err);
+        setMedicinesCatalog(DEFAULT_MEDICINES);
       }
     };
     fetchMedicines();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchActiveCallPatient = async () => {
+      if (!activeCallPatientId) {
+        setActiveCallPatientDetail(null);
+        return;
+      }
+
+      const listPatient = patients.find(p => p.id === activeCallPatientId) || null;
+      setActiveCallPatientDetail(current => (
+        current?.id === activeCallPatientId ? current : listPatient
+      ));
+
+      try {
+        const detail = await api.getPatientById(activeCallPatientId);
+        if (!cancelled && detail) {
+          setActiveCallPatientDetail(detail);
+        }
+      } catch (e) {
+        console.error("Error loading active patient detail:", e);
+      }
+    };
+
+    fetchActiveCallPatient();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeCallPatientId]);
 
   const [queuePatients, setQueuePatients] = useState<any[]>([]);
   const [queueError, setQueueError] = useState<string | null>(null);
@@ -176,7 +236,11 @@ export default function DoctorDashboard({
   const handleEndCall = () => {
     setActiveCallRoom(null);
     setActiveCallPatientId(null);
+    setActiveCallPatientDetail(null);
     setQuickNotes("");
+    setQuickDiagnosisTitle("");
+    setQuickCie10Code("");
+    setQuickIndications("");
     setQuickPrescriptions([{ name: "", dosage: "", duration: "", doseQty: "1 tableta", doseFreq: "cada 8 horas", durQty: "7", durUnit: "días" }]);
     setSuspendedTreatments([]);
     setShowFullRecord(false);
@@ -204,9 +268,10 @@ export default function DoctorDashboard({
           ...(token ? { "Authorization": `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
-          cie10Code: "Z00.0",
-          diagnosisTitle: "Consulta por Telemedicina",
+          cie10Code: quickCie10Code.trim() || "Z00.0",
+          diagnosisTitle: quickDiagnosisTitle.trim() || "Consulta por Telemedicina",
           notes: finalNotes,
+          indications: quickIndications.trim() || null,
           prescriptions: quickPrescriptions
             .filter(p => p.name.trim() !== "")
             .map(p => {
@@ -262,6 +327,13 @@ export default function DoctorDashboard({
     p.medicalHistoryNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.dni.includes(searchTerm)
   );
+
+  const getMedicineSuggestions = (term: string) => {
+    const needle = normalizeSearch(term);
+    return medicinesCatalog
+      .filter(med => !needle || normalizeSearch(med.name).includes(needle))
+      .slice(0, 12);
+  };
 
   const activeDoc = user?.name || "Dr. Yawar Quispe";
   const doctorAppointments = appointments.filter(a => 
@@ -468,20 +540,27 @@ export default function DoctorDashboard({
                 
                 {/* Tratamientos Médicos Activos */}
                 {(() => {
-                  const activePatient = patients.find(p => p.id === activeCallPatientId);
+                  const activePatient = activeCallPatientDetail || patients.find(p => p.id === activeCallPatientId);
                   if (!activePatient) return null;
 
                   // Get all previous prescriptions
                   const allPastPrescriptions = activePatient.consultations?.flatMap(c => 
-                    c.prescriptions.map(p => ({ ...p, date: c.date }))
+                    (c.prescriptions || []).map(p => ({ ...p, date: c.date }))
                   ) || [];
 
                   return (
-                    <div className="mb-6 bg-slate-55 rounded-2xl p-4 border border-slate-200">
-                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                        <Pill className="w-4 h-4 text-emerald-600 animate-pulse" />
-                        {language === "es" ? "Tratamiento Actual (Consultas Previas)" : "Kunan Hampiy (Ñawpaq Tapuykuna)"}
-                      </label>
+                    <div className="mb-6 rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <label className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-emerald-800">
+                          <Pill className="w-4 h-4 text-emerald-600" />
+                          {language === "es" ? "Tratamiento que toma actualmente" : "Kunan ukyashan hampikuna"}
+                        </label>
+                        {allPastPrescriptions.length > 0 && (
+                          <span className="rounded-full border border-emerald-100 bg-white px-2.5 py-1 text-[10px] font-black text-emerald-700 shadow-sm">
+                            {allPastPrescriptions.length} {language === "es" ? "registrado(s)" : "qillqasqa"}
+                          </span>
+                        )}
+                      </div>
                       {allPastPrescriptions.length === 0 ? (
                         <p className="text-xs text-slate-400 italic">{language === "es" ? "No se registran tratamientos previos en el expediente." : "Manan ñawpaq hampiykuna qillqasqachu kachkan hampiy qillqapi."}</p>
                       ) : (
@@ -489,14 +568,19 @@ export default function DoctorDashboard({
                           {allPastPrescriptions.map((presc: any, pIdx: number) => {
                             const isSuspended = suspendedTreatments.some(t => t.name === presc.name);
                             return (
-                              <div key={pIdx} className="bg-white border border-slate-150 p-3 rounded-xl flex flex-col gap-1.5 shadow-sm">
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <span className={`text-xs font-bold text-slate-700 ${isSuspended ? "line-through text-slate-400 font-medium" : ""}`}>
-                                      {presc.name}
+                              <div key={pIdx} className="bg-white border border-emerald-100 p-3 rounded-xl flex flex-col gap-2 shadow-sm">
+                                <div className="flex justify-between items-start gap-3">
+                                  <div className="min-w-0">
+                                    <span className={`block text-sm font-black text-slate-800 break-words ${isSuspended ? "line-through text-slate-400 font-medium" : ""}`}>
+                                      {presc.name || (language === "es" ? "Medicamento sin nombre" : "Mana sutiyuq hampi")}
                                     </span>
-                                    <div className="text-[10px] text-slate-500 font-medium mt-0.5">
-                                      {language === "es" ? "Dosis:" : "Tupuy:"} {presc.dosage} | {language === "es" ? "Duración:" : "Pacha:"} {presc.duration}
+                                    <div className="mt-1 flex flex-wrap gap-1.5 text-[10px] font-bold">
+                                      <span className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-1 text-slate-600">
+                                        {language === "es" ? "Dosis:" : "Tupuy:"} {presc.dosage || "-"}
+                                      </span>
+                                      <span className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-1 text-slate-600">
+                                        {language === "es" ? "Duración:" : "Pacha:"} {presc.duration || "-"}
+                                      </span>
                                     </div>
                                   </div>
                                   {!isSuspended ? (
@@ -527,21 +611,42 @@ export default function DoctorDashboard({
                   );
                 })()}
 
+                {/* Diagnosis Inputs */}
+                <div className="mb-4">
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                      {language === "es" ? "Diagnóstico de la Consulta" : "Tapuypa Unquy Reqsiynin"}
+                    </label>
+                    <input 
+                      type="text"
+                      value={quickDiagnosisTitle}
+                      onChange={(e) => setQuickDiagnosisTitle(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-inner" 
+                      placeholder={language === "es" ? "Ej: Faringitis Aguda, Gripe Común" : "Ej: Faringitis Aguda, Gripe Común"}
+                    />
+                </div>
+
                 <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">{language === "es" ? "Notas de la Consulta (Tiempo Real)" : "Tapuypa Qillqasqankuna (Kunan Pacha)"}</label>
                 <textarea 
                   value={quickNotes}
                   onChange={(e) => setQuickNotes(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 min-h-[150px] mb-6 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-inner" 
-                  placeholder={language === "es" ? "Escribe aquí los síntomas, diagnóstico..." : "Kaypi qillqay unquypa unanchankuna, hampiy..."}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 min-h-[120px] mb-4 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-inner" 
+                  placeholder={language === "es" ? "Escribe aquí los síntomas observados, hallazgos físicos..." : "Kaypi qillqay unquypa unanchankuna..."}
+                ></textarea>
+
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                  {language === "es" ? "Indicaciones al Paciente (Reposo, alimentación, etc.)" : "Pacienteqpaq Kamachikuykuna (Samay, mikhuy, etc.)"}
+                </label>
+                <textarea 
+                  value={quickIndications}
+                  onChange={(e) => setQuickIndications(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 min-h-[100px] mb-6 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-inner" 
+                  placeholder={language === "es" ? "Ej: Reposo absoluto por 3 días, beber abundantes líquidos templados, evitar corrientes de aire." : "Ej: Kinsa p'unchaw allinta samay, askha q'uñi yakuta ukyay, ama chiri wayrapi puriychu."}
                 ></textarea>
                 
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                <div className="mb-2">
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider leading-snug">
                     {language === "es" ? "Prescripción Médica (Medicamentos)" : "Hampi Qillqana (Hampikuna)"}
                   </label>
-                  <span className="text-blue-600 text-[11px] font-bold flex items-center gap-1">
-                    <Languages className="w-3.5 h-3.5"/> {language === "es" ? "Traducción IA Automática" : "Kikinmanta IA Tikray"}
-                  </span>
                 </div>
 
                 <div className="space-y-3">
@@ -568,40 +673,41 @@ export default function DoctorDashboard({
                           
                           {/* Sugerencias dropdown */}
                           {focusedPrescIdx === idx && (
-                            <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 text-xs py-1">
-                              {medicinesCatalog.filter(med => 
-                                med.name.toLowerCase().includes(presc.name.toLowerCase())
-                              ).length === 0 ? (
-                                <div className="px-3 py-2 text-slate-400 italic">
-                                  {language === "es" ? "No se encontraron coincidencias. Se guardará como texto libre." : "Manan tarikuñchu. Qasi qillqasqa hinan waqaychasqa kanqa."}
+                            (() => {
+                              const suggestions = getMedicineSuggestions(presc.name);
+                              return (
+                                <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-56 overflow-y-auto z-50 text-xs py-1">
+                                  {suggestions.length === 0 ? (
+                                    <div className="px-3 py-3 text-slate-400 italic">
+                                      {language === "es" ? "No se encontraron coincidencias. Se guardará como texto libre." : "Manan tarikuñchu. Qasi qillqasqa hinan waqaychasqa kanqa."}
+                                    </div>
+                                  ) : (
+                                    suggestions.map((med) => (
+                                      <button
+                                        key={med.id}
+                                        type="button"
+                                        onMouseDown={() => {
+                                          const newPrescs = [...quickPrescriptions];
+                                          newPrescs[idx].name = med.name;
+                                          setQuickPrescriptions(newPrescs);
+                                          setFocusedPrescIdx(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2.5 hover:bg-blue-50/70 flex items-center justify-between gap-3 transition-colors border-b border-slate-100 last:border-0"
+                                      >
+                                        <span className="font-bold text-slate-750 leading-snug break-words">{med.name}</span>
+                                        <span className={`shrink-0 text-[9px] font-black px-2 py-0.5 rounded-full ${
+                                          med.category === "Tradicional" 
+                                            ? "bg-emerald-50 text-emerald-700 border border-emerald-100" 
+                                            : "bg-blue-50 text-blue-700 border border-blue-100"
+                                        }`}>
+                                          {med.category}
+                                        </span>
+                                      </button>
+                                    ))
+                                  )}
                                 </div>
-                              ) : (
-                                medicinesCatalog
-                                  .filter(med => med.name.toLowerCase().includes(presc.name.toLowerCase()))
-                                  .map((med) => (
-                                    <button
-                                      key={med.id}
-                                      type="button"
-                                      onMouseDown={() => {
-                                        const newPrescs = [...quickPrescriptions];
-                                        newPrescs[idx].name = med.name;
-                                        setQuickPrescriptions(newPrescs);
-                                        setFocusedPrescIdx(null);
-                                      }}
-                                      className="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center justify-between transition-colors border-b border-slate-100 last:border-0"
-                                    >
-                                      <span className="font-medium text-slate-700">{med.name}</span>
-                                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                                        med.category === "Tradicional" 
-                                          ? "bg-emerald-50 text-emerald-700 border border-emerald-100" 
-                                          : "bg-blue-50 text-blue-700 border border-blue-100"
-                                      }`}>
-                                        {med.category}
-                                      </span>
-                                    </button>
-                                  ))
-                              )}
-                            </div>
+                              );
+                            })()
                           )}
                         </div>
                       </div>

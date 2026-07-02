@@ -281,6 +281,13 @@ let dbError: string | null = null;
         console.error("Migration warning for Consultations.QuechuaSummary:", err.message);
       }
 
+      // Ensure Indications column exists in Consultations (migration)
+      try {
+        await pool.query("ALTER TABLE Consultations ADD COLUMN IF NOT EXISTS Indications TEXT NULL");
+      } catch (err: any) {
+        console.error("Migration warning for Consultations.Indications:", err.message);
+      }
+
       // Ensure Password and AvatarURL columns exist in Patients (migration)
       try {
         await pool.query("ALTER TABLE Patients ADD COLUMN IF NOT EXISTS Password VARCHAR(255) NULL");
@@ -1266,6 +1273,7 @@ app.get("/api/patients/:id", async (req: any, res) => {
         notes: r.Notes ?? r.notes,
         createdBy: r.CreatedBy ?? r.createdby,
         quechuaSummary: r.QuechuaSummary ?? r.quechuasummary,
+        indications: r.Indications ?? r.indications,
         prescriptions: []
       };
     });
@@ -1312,6 +1320,7 @@ app.get("/api/patients/:id/consultations", async (req: any, res) => {
         notes: r.Notes ?? r.notes,
         createdBy: r.CreatedBy ?? r.createdby,
         quechuaSummary: r.QuechuaSummary ?? r.quechuasummary,
+        indications: r.Indications ?? r.indications,
         prescriptions: []
       };
     });
@@ -1433,7 +1442,7 @@ app.post("/api/patients", async (req, res) => {
 // POST Patient Consultation & Prescription
 app.post("/api/patients/:id/consultations", requireRole(['administrator', 'doctor']), async (req: any, res) => {
   const pId = req.params.id;
-  const { cie10Code, diagnosisTitle, notes, prescriptions, quechuaSummary } = req.body;
+  const { cie10Code, diagnosisTitle, notes, prescriptions, quechuaSummary, indications } = req.body;
   const consId = `CONS_${Math.floor(10000 + Math.random() * 90000)}`;
 
   try {
@@ -1444,11 +1453,11 @@ app.post("/api/patients/:id/consultations", requireRole(['administrator', 'docto
       await client.query('BEGIN');
 
       const doctorName = req.user?.name || 'Dr. Yawar Quispe';
-      const q1 = `INSERT INTO Consultations (ConsultationID, PatientID, Date, CIE10Code, DiagnosisTitle, Notes, CreatedBy, QuechuaSummary)
-                VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, $6, $7)`;
+      const q1 = `INSERT INTO Consultations (ConsultationID, PatientID, Date, CIE10Code, DiagnosisTitle, Notes, CreatedBy, QuechuaSummary, Indications)
+                VALUES ($1, $2, CURRENT_TIMESTAMP, $3, $4, $5, $6, $7, $8)`;
       logSql("INSERT", "Consultations", q1, [consId, pId]);
 
-      await client.query(q1, [consId, pId, cie10Code || "Z00.0", diagnosisTitle || "General examination", notes || "", doctorName, quechuaSummary || null]);
+      await client.query(q1, [consId, pId, cie10Code || "Z00.0", diagnosisTitle || "General examination", notes || "", doctorName, quechuaSummary || null, indications || null]);
 
       for (let p of (prescriptions || [])) {
         const presId = `MED_${Math.floor(10000 + Math.random() * 90000)}`;
