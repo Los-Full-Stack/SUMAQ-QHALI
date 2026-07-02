@@ -125,11 +125,12 @@ export default function App() {
 
         {isRegModalOpen && (
           <RegisterModal 
+            language={language}
             onClose={() => setIsRegModalOpen(false)} 
             onSuccess={() => { setIsRegModalOpen(false); fetchAllData(); }} 
           />
         )}
-        <FeedbackCenter />
+        <FeedbackCenter language={language} />
       </div>
     </BrowserRouter>
   );

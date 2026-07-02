@@ -50,7 +50,7 @@ export default function TopNavbar({
         <img src="/logo.svg" alt="Sumaq Qhali" className="w-6 h-6 object-contain" />
         <div className="hidden sm:block">
           <h1 className="text-lg font-bold font-headline select-none leading-tight">SUMAQ QHALI</h1>
-          <p className="text-[10px] text-cyan-200 uppercase tracking-widest font-semibold leading-none">HCE Bilingüe</p>
+          <p className="text-[10px] text-cyan-200 uppercase tracking-widest font-semibold leading-none">{language === "es" ? "HCE Bilingüe" : "Iskay simipi HCE"}</p>
         </div>
       </div>
 
@@ -63,21 +63,21 @@ export default function TopNavbar({
               className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${role === 'doctor' ? 'bg-[#002d50] text-cyan-300' : 'text-slate-300 hover:bg-[#002d50]/50 hover:text-white'}`}
             >
               <LayoutDashboard className="w-4 h-4 shrink-0" />
-              <span className="hidden md:inline">Panel Médico</span>
+              <span className="hidden md:inline">{language === "es" ? "Panel Médico" : "Hampiqpa Panelnin"}</span>
             </button>
             <button 
               onClick={() => handleNavigation("administrator", "/admin")}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${role === 'administrator' ? 'bg-[#002d50] text-cyan-300' : 'text-slate-300 hover:bg-[#002d50]/50 hover:text-white'}`}
             >
               <Building2 className="w-4 h-4 shrink-0" />
-              <span className="hidden lg:inline">Panel Admin</span>
+              <span className="hidden lg:inline">{language === "es" ? "Panel Admin" : "Kamachiypa Panelnin"}</span>
             </button>
             <button 
               onClick={() => handleNavigation("patient_portal", "/patient")}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer hover:bg-[#002d50]/50 text-slate-300 hover:text-white`}
             >
               <UserCheck className="w-4 h-4 shrink-0" />
-              <span className="hidden lg:inline">Portal Pacientes</span>
+              <span className="hidden lg:inline">{language === "es" ? "Portal Pacientes" : "Pacientekunapa Ukhun"}</span>
             </button>
           </div>
         )}
@@ -91,7 +91,7 @@ export default function TopNavbar({
             onClick={onRegisterPatient}
             className="bg-secondary hover:bg-[#004d63] text-white flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-bold shadow-sm cursor-pointer transition-colors"
           >
-            <UserPlus className="w-4 h-4" /> <span className="hidden md:inline">Registrar</span>
+            <UserPlus className="w-4 h-4" /> <span className="hidden md:inline">{language === "es" ? "Registrar" : "Qillqay"}</span>
           </button>
         )}
 
@@ -99,7 +99,7 @@ export default function TopNavbar({
         <button 
           onClick={() => setLanguage(language === "es" ? "qu" : "es")}
           className="bg-[#002b4d] border border-[#042844] hover:bg-[#00213d] flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-cyan-100 font-semibold cursor-pointer transition-colors"
-          title="Cambiar Idioma"
+          title={language === "es" ? "Cambiar Idioma" : "Simita tikray"}
         >
           <Globe className="w-4 h-4" />
           <span className="bg-cyan-900 border border-cyan-700 text-cyan-200 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold">
@@ -111,7 +111,7 @@ export default function TopNavbar({
         <button 
           onClick={() => setIsOffline(!isOffline)}
           className={`w-8 h-8 rounded-md flex items-center justify-center transition-colors cursor-pointer ${isOffline ? "bg-rose-500 text-white" : "bg-[#0b3c64] text-cyan-300 hover:bg-[#002b4d]"}`}
-          title={isOffline ? "Reconectar a la red" : "Simular desconexión"}
+          title={isOffline ? (language === "es" ? "Reconectar a la red" : "Llikaman yapamanta t'inkiy") : (language === "es" ? "Simular desconexión" : "Llika p'itiy simulay")}
         >
           {isOffline ? <WifiOff className="w-4 h-4" /> : <Wifi className="w-4 h-4" />}
         </button>
@@ -136,7 +136,7 @@ export default function TopNavbar({
           <button 
             onClick={logout}
             className="text-slate-400 hover:text-rose-400 transition-colors cursor-pointer p-1"
-            title="Cerrar sesión"
+            title={language === "es" ? "Cerrar sesión" : "Lluqsiy"}
           >
             <LogOut className="w-5 h-5" />
           </button>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface JitsiCallProps {
   roomName: string;
@@ -7,24 +8,25 @@ interface JitsiCallProps {
 }
 
 export default function JitsiCall({ roomName, displayName, onEndCall }: JitsiCallProps) {
+  const { t } = useTranslation();
   // Usamos un servidor público alternativo (Systemli) que NO exige inicio de sesión
   // para crear salas, ideal para pruebas y demostraciones fluidas.
   const domain = "meet.systemli.org";
   // Jitsi modern configuration requires prejoinConfig.enabled
-  const url = `https://${domain}/${roomName}#config.prejoinPageEnabled=false&config.prejoinConfig.enabled=false&config.disableDeepLinking=true&config.startWithVideoMuted=false&config.startWithAudioMuted=false&userInfo.displayName="${encodeURIComponent(displayName)}"`;
+  const url = `https://${domain}/${roomName}#config.prejoinPageEnabled=false&config.prejoinConfig.enabled=false&config.disableDeepLinking=true&config.startWithVideoMuted=false&config.startWithAudioMuted=false&config.toolbarButtons=%5B%22microphone%22,%22camera%22,%22chat%22,%22tileview%22%5D&userInfo.displayName="${encodeURIComponent(displayName)}"`;
 
   return (
     <div className="w-full h-full min-h-[500px] relative rounded-2xl overflow-hidden shadow-lg border border-slate-200 bg-slate-900 flex flex-col">
-      {/* Banner de aviso para saltar restricción de Jitsi */}
-      <div className="bg-blue-600 text-white text-xs md:text-sm p-3 flex flex-col md:flex-row items-center justify-between gap-3">
+      {/* Banner de aviso */}
+      <div className="bg-primary text-white text-xs md:text-sm p-3 flex flex-col md:flex-row items-center justify-between gap-3">
         <p className="font-medium text-center md:text-left">
-          <strong>Aviso:</strong> Jitsi limita las llamadas integradas (iframe) a 5 minutos. Para consultas sin límite de tiempo, abre la sala en una nueva pestaña.
+          {t('alert_message')}
         </p>
         <button 
           onClick={() => window.open(url, '_blank')}
-          className="bg-white text-blue-600 hover:bg-blue-50 font-bold py-1.5 px-4 rounded-lg shadow-sm transition-colors whitespace-nowrap"
+          className="bg-white text-primary hover:bg-primary-light font-bold py-1.5 px-4 rounded-lg shadow-sm transition-colors whitespace-nowrap"
         >
-          Abrir sin límite de tiempo
+          {t('open_no_limit')}
         </button>
       </div>
       
@@ -34,16 +36,7 @@ export default function JitsiCall({ roomName, displayName, onEndCall }: JitsiCal
         className="w-full flex-1 border-0"
         title="Telemedicina Sumaq Qhali"
       />
-      {onEndCall && (
-        <div className="bg-slate-900 p-3 flex justify-center border-t border-slate-800">
-          <button 
-            onClick={onEndCall}
-            className="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 px-8 rounded-xl shadow-xl transition-all"
-          >
-            Finalizar Videollamada
-          </button>
-        </div>
-      )}
+      
     </div>
   );
 }

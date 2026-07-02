@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { AlertCircle, CheckCircle2, Info, X, TriangleAlert } from "lucide-react";
 import { ConfirmPayload, NoticePayload } from "../services/uiFeedback";
+import { Language } from "../types";
 
 interface Notice extends NoticePayload {
   id: number;
@@ -29,7 +30,11 @@ const noticeStyles = {
   }
 };
 
-export default function FeedbackCenter() {
+interface FeedbackCenterProps {
+  language: Language;
+}
+
+export default function FeedbackCenter({ language }: FeedbackCenterProps) {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [confirm, setConfirm] = useState<ConfirmPayload | null>(null);
 
@@ -86,7 +91,7 @@ export default function FeedbackCenter() {
                   type="button"
                   onClick={() => setNotices((current) => current.filter((item) => item.id !== notice.id))}
                   className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 cursor-pointer"
-                  aria-label="Cerrar notificación"
+                  aria-label={language === "es" ? "Cerrar notificación" : "Notificacionta wichq'ay"}
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -112,14 +117,14 @@ export default function FeedbackCenter() {
                 onClick={() => closeConfirm(false)}
                 className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-600 transition-colors hover:bg-slate-100 cursor-pointer"
               >
-                {confirm.cancelLabel || "Cancelar"}
+                {confirm.cancelLabel || (language === "es" ? "Cancelar" : "Ama")}
               </button>
               <button
                 type="button"
                 onClick={() => closeConfirm(true)}
                 className={`rounded-xl px-4 py-2 text-xs font-black text-white transition-colors cursor-pointer ${confirm.tone === "danger" ? "bg-rose-600 hover:bg-rose-700" : "bg-slate-900 hover:bg-slate-800"}`}
               >
-                {confirm.confirmLabel || "Confirmar"}
+                {confirm.confirmLabel || (language === "es" ? "Confirmar" : "Ari")}
               </button>
             </div>
           </div>

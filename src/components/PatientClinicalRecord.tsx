@@ -168,14 +168,22 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
       }
     } catch (e) {
       console.error(e);
-      notify({ type: "error", title: "No se pudo guardar", message: "El registro clínico no fue guardado. Intenta nuevamente." });
+      notify({ 
+        type: "error", 
+        title: language === "es" ? "No se pudo guardar" : "Mana waqaychayta atikunchu", 
+        message: language === "es" ? "El registro clínico no fue guardado. Intenta nuevamente." : "Hampiy qillqaqa mana waqaychasqachu karqan. Musuqmanta ruway." 
+      });
     }
   };
 
   // Gemini translator integration
   const handleTranslateQuechua = async () => {
     if (!clinicalNotes && !diagnosisTitle) {
-      notify({ type: "warning", title: "Falta información clínica", message: "Ingresa notas clínicas o diagnóstico antes de traducir." });
+      notify({ 
+        type: "warning", 
+        title: language === "es" ? "Falta información clínica" : "Pantasqa clinical willay", 
+        message: language === "es" ? "Ingresa notas clínicas o diagnóstico antes de traducir." : "Qillqay hampiy yachayta manaraq t'ikrachkanki." 
+      });
       return;
     }
     try {
@@ -195,14 +203,26 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
       if (res.ok) {
         const data = await res.json();
         setAiTranslatorResult(data.translatedText);
-        notify({ type: "success", title: "Traduccion completa", message: "Se genero la version bilingue completa de la indicacion clinica." });
+        notify({ 
+          type: "success", 
+          title: language === "es" ? "Traducción completa" : "T'ikray tukusqaña", 
+          message: language === "es" ? "Se generó la versión bilingüe completa de la indicación clínica." : "Hampiy yachaypa iskay simipi qillqasqanqa rurasqañam." 
+        });
       } else {
         const data = await res.json().catch(() => ({}));
-        notify({ type: "error", title: "No se pudo traducir", message: data.error || "Revisa la sesion e intenta nuevamente." });
+        notify({ 
+          type: "error", 
+          title: language === "es" ? "No se pudo traducir" : "Mana t'ikrayta atikunchu", 
+          message: data.error || (language === "es" ? "Revisa la sesión e intenta nuevamente." : "Yaykuyta qhawariy musuqmantapas ruway.") 
+        });
       }
     } catch (e) {
       console.error(e);
-      notify({ type: "error", title: "No se pudo traducir", message: "El servicio de traduccion no respondio." });
+      notify({ 
+        type: "error", 
+        title: language === "es" ? "No se pudo traducir" : "Mana t'ikrayta atikunchu", 
+        message: language === "es" ? "El servicio de traducción no respondió." : "T'ikray yanapakuyqa mana kutichimunchu." 
+      });
     } finally {
       setTranslating(false);
     }
@@ -309,7 +329,7 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
       <div className="flex-grow flex items-center justify-center bg-[#F7F9FB] py-20 font-sans">
         <div className="text-center">
           <div className="w-10 h-10 border-4 border-secondary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-xs text-gray-500 font-sans">Recuperando Historia Clínica del Paciente...</p>
+          <p className="text-xs text-gray-500 font-sans">{language === "es" ? "Recuperando Historia Clínica del Paciente..." : "Pacienteq hampikuy historialninta chaskichkan..."}</p>
         </div>
       </div>
     );
@@ -320,8 +340,8 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
       <div className="flex-grow flex items-center justify-center p-10 font-sans">
         <div className="text-center text-red-500">
           <AlertCircle className="w-10 h-10 mx-auto mb-2" />
-          <p className="text-sm font-bold font-headline">Paciente no encontrado</p>
-          <button onClick={onBack} className="text-xs text-secondary mt-2 underline">Volver</button>
+          <p className="text-sm font-bold font-headline">{language === "es" ? "Paciente no encontrado" : "Unquqqa mana tarisqachu"}</p>
+          <button onClick={onBack} className="text-xs text-secondary mt-2 underline">{language === "es" ? "Volver" : "Kutiy"}</button>
         </div>
       </div>
     );
@@ -336,8 +356,8 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
           <div className="bg-blue-50 border border-blue-200 text-blue-800 text-xs md:text-sm p-4 rounded-xl flex items-center gap-3 shadow-sm font-sans animate-fade-in">
             <div className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold">✓</div>
             <div>
-              <p className="font-bold">¡Consulta Guardada Exitosamente!</p>
-              <p className="opacity-90">El registro médico y la receta se han guardado con persistencia relacional en la base de datos local.</p>
+              <p className="font-bold">{language === "es" ? "¡Consulta Guardada Exitosamente!" : "¡Hampiy Rimay Waqaychasqaña!"}</p>
+              <p className="opacity-90">{language === "es" ? "El registro médico y la receta se han guardado con persistencia relacional en la base de datos local." : "Hampiy qillqapas recetapas local base de datos nisqapim allin waqaychasqa kachkan."}</p>
             </div>
           </div>
         )}
@@ -349,7 +369,7 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
             className="flex items-center gap-2 text-sm font-bold text-gray-700 hover:text-primary transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-5 h-5" />
-            <span>Volver a Pacientes</span>
+            <span>{language === "es" ? "Volver a Pacientes" : "Unquqkunaman Kutiy"}</span>
           </button>
         </div>
 
@@ -374,26 +394,26 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
             <div className="flex flex-col sm:flex-row items-center gap-3 justify-center md:justify-start mb-1">
               <h2 className="text-xl md:text-2xl font-bold text-primary font-headline tracking-tight">{patient.name}</h2>
               <span className="bg-cyan-100 text-[#00637f] text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                {patient.status === "Active" ? "Paciente Activo" : "Inactivo"}
+                {patient.status === "Active" ? (language === "es" ? "Paciente Activo" : "Unquq Kawsachkan") : (language === "es" ? "Inactivo" : "Mana Kawsachkanchu")}
               </span>
             </div>
-            <p className="text-xs md:text-sm text-gray-500 font-sans mb-3 font-medium">Historia Clínica: {patient.medicalHistoryNumber}</p>
+            <p className="text-xs md:text-sm text-gray-500 font-sans mb-3 font-medium">{language === "es" ? "Historia Clínica: " : "Hampikuy Historial: "}{patient.medicalHistoryNumber}</p>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-semibold text-gray-700 bg-gray-50 p-4 rounded-xl border border-gray-100">
               <div>
-                <p className="text-[10px] text-gray-400 uppercase">Edad</p>
-                <p className="text-sm text-gray-900 mt-0.5">{patient.age} años</p>
+                <p className="text-[10px] text-gray-400 uppercase">{language === "es" ? "Edad" : "Watankuna"}</p>
+                <p className="text-sm text-gray-900 mt-0.5">{patient.age} {language === "es" ? "años" : "wata"}</p>
               </div>
               <div className="border-l border-gray-200 pl-4">
                 <p className="text-[10px] text-gray-400 uppercase">DNI</p>
                 <p className="text-sm text-gray-900 mt-0.5">{patient.dni}</p>
               </div>
               <div className="border-l border-gray-200 pl-4">
-                <p className="text-[10px] text-gray-400 uppercase">Grupo Sanguíneo</p>
+                <p className="text-[10px] text-gray-400 uppercase">{language === "es" ? "Grupo Sanguíneo" : "Yawar T'aqa"}</p>
                 <p className="text-sm text-gray-900 mt-0.5">{patient.bloodType}</p>
               </div>
               <div className="border-l border-gray-200 pl-4">
-                <p className="text-[10px] text-gray-400 uppercase">Localidad</p>
+                <p className="text-[10px] text-gray-400 uppercase">{language === "es" ? "Localidad" : "Llaqta"}</p>
                 <p className="text-sm text-gray-900 mt-0.5">{patient.location}</p>
               </div>
             </div>
@@ -412,13 +432,13 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
                 onClick={() => setActiveTab("new_consultation")}
                 className={`flex-1 text-center py-2.5 rounded-lg text-xs md:text-sm font-semibold transition-colors cursor-pointer ${activeTab === "new_consultation" ? "bg-primary text-white" : "text-gray-500 hover:text-gray-900"}`}
               >
-                Nueva Consulta
+                {language === "es" ? "Nueva Consulta" : "Musuq Hampiy Rimay"}
               </button>
               <button 
                 onClick={() => setActiveTab("history")}
                 className={`flex-1 text-center py-2.5 rounded-lg text-xs md:text-sm font-semibold transition-colors cursor-pointer ${activeTab === "history" ? "bg-primary text-white" : "text-gray-500 hover:text-gray-900"}`}
               >
-                Historial Médico ({patient.consultations?.length || 0})
+                {language === "es" ? "Historial Médico" : "Hampikuy Historial"} ({patient.consultations?.length || 0})
               </button>
             </div>
 
@@ -429,13 +449,13 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
                 <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm flex flex-col gap-5">
                   <h3 className="text-base md:text-lg font-bold font-headline text-primary border-b border-gray-100 pb-3 flex items-center gap-2">
                     <Stethoscope className="w-5 h-5 text-secondary" />
-                    <span>Diagnóstico Clínico Actual</span>
+                    <span>{language === "es" ? "Diagnóstico Clínico Actual" : "Kunan Hampiy Diagnóstico"}</span>
                   </h3>
 
                   {/* Filter / Choose CIE-10 diagnosis */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Código CIE-10</label>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">{language === "es" ? "Código CIE-10" : "CIE-10 Código"}</label>
                       <div className="relative">
                         <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
                         <input 
@@ -445,7 +465,7 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
                             setCie10Search(e.target.value);
                             setCie10Code(e.target.value);
                           }}
-                          placeholder="Buscar cód. (ej. I10, J45)"
+                          placeholder={language === "es" ? "Buscar cód. (ej. I10, J45)" : "Buscar código... (ej. I10, J45)"}
                           className="w-full bg-white border border-gray-300 rounded-lg py-2 pl-9 pr-3 text-xs md:text-sm font-sans focus:outline-none focus:border-secondary transition-colors"
                         />
                       </div>
@@ -474,24 +494,24 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Descripción del Diagnóstico</label>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">{language === "es" ? "Descripción del Diagnóstico" : "Diagnosticomanta willakuy"}</label>
                       <input 
                         type="text"
                         value={diagnosisTitle}
                         onChange={(e) => setDiagnosisTitle(e.target.value)}
-                        placeholder="Ej. Hipertensión esencial"
+                        placeholder={language === "es" ? "Ej. Hipertensión esencial" : "Kayhina: Hipertensión esencial"}
                         className="w-full bg-white border border-gray-300 rounded-lg py-2 px-3 text-xs md:text-sm font-sans focus:outline-none focus:border-secondary transition-colors"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Notas Clínicas & Observaciones</label>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">{language === "es" ? "Notas Clínicas & Observaciones" : "Hampiy Qillqaykuna & Qhawaykuna"}</label>
                     <textarea 
                       rows={4}
                       value={clinicalNotes}
                       onChange={(e) => setClinicalNotes(e.target.value)}
-                      placeholder="Ingrese los síntomas del paciente, signos vitales y observaciones generales del examen..."
+                      placeholder={language === "es" ? "Ingrese los síntomas del paciente, signos vitales y observaciones generales del examen..." : "Qillqay unquqpa nanayninkunata, vital unanchakunata, qhawaykunatapas..."}
                       className="w-full bg-white border border-gray-300 rounded-lg py-2 px-3 text-xs md:text-sm font-sans focus:outline-none focus:border-secondary transition-colors"
                     />
                   </div>
@@ -501,8 +521,8 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
                     <div className="flex items-start gap-2.5">
                       <Sparkles className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                       <div>
-                        <p className="text-xs font-bold text-gray-900">Asistente de Consulta Bilingüe AI</p>
-                        <p className="text-[11px] text-gray-500">¿Desea generar un resumen de instrucciones médicas adaptadas en Quechua para el paciente?</p>
+                        <p className="text-xs font-bold text-gray-900">{language === "es" ? "Asistente de Consulta Bilingüe AI" : "AI Iskay Simipi Yanapakuq"}</p>
+                        <p className="text-[11px] text-gray-500">{language === "es" ? "¿Desea generar un resumen de instrucciones médicas adaptadas en Quechua para el paciente?" : "¿Munankichu unquqpaq Quechua simipi hampikuy yanapayta AI-wan ruwayta?"}</p>
                       </div>
                     </div>
                     <button 
@@ -510,7 +530,7 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
                       disabled={translating}
                       className="bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-xs px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition-colors shrink-0 disabled:opacity-50 cursor-pointer"
                     >
-                      {translating ? "Procesando..." : "Traducir a Runa Simi (Quechua)"}
+                      {translating ? (language === "es" ? "Procesando..." : "Rurachkan...") : (language === "es" ? "Traducir a Runa Simi (Quechua)" : "Runa Simiman t'ikray (Quechua)")}
                     </button>
                   </div>
 
@@ -534,19 +554,19 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
                   <div className="flex justify-between items-center border-b border-gray-100 pb-3">
                     <h3 className="text-base font-bold font-headline text-primary flex items-center gap-2">
                       <Pill className="w-5 h-5 text-secondary" />
-                      <span>Tratamiento y Receta Médica</span>
+                      <span>{language === "es" ? "Tratamiento y Receta Médica" : "Hampikuy & Receta"}</span>
                     </h3>
                     <button 
                       onClick={addMedicationLine}
                       className="text-secondary hover:text-[#004d63] p-1.5 hover:bg-cyan-50 rounded-lg transition-all flex items-center gap-1 text-xs font-bold shrink-0 cursor-pointer"
                     >
-                      <Plus className="w-4 h-4" /> Agregar Línea
+                      <Plus className="w-4 h-4" /> {language === "es" ? "Agregar Línea" : "Huk filata yapay"}
                     </button>
                   </div>
 
                   {medications.length === 0 ? (
                     <div className="p-6 text-center text-xs text-gray-400 font-sans border border-dashed border-gray-200 rounded-xl bg-gray-50">
-                      No se han ingresado medicamentos. Haga clic en Agregar Línea para iniciar la receta de salida.
+                      {language === "es" ? "No se han ingresado medicamentos. Haga clic en Agregar Línea para iniciar la receta de salida." : "Manam hampikuna kanchu. Huk filata yapay."}
                     </div>
                   ) : (
                     <div className="flex flex-col gap-3">
@@ -556,14 +576,14 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
                           className="bg-[#F8FAFC] p-4 rounded-xl border border-gray-200 flex flex-col md:flex-row gap-4 items-end"
                         >
                           <div className="flex-1 w-full relative">
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Medicamento (Buscador)</label>
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">{language === "es" ? "Medicamento (Buscador)" : "Hampita maskhay"}</label>
                             <div className="relative">
                               <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
                               <input 
                                 type="text"
                                 value={m.name}
                                 onChange={(e) => updateMedicationLine(idx, "name", e.target.value)}
-                                placeholder="Buscar medicina... Ej. Ibuprofeno"
+                                placeholder={language === "es" ? "Buscar medicina... Ej. Ibuprofeno" : "Hampita maskhay... Ej. Ibuprofeno"}
                                 className="w-full bg-white border border-gray-300 rounded-lg py-2 pl-9 pr-3 text-xs md:text-sm focus:outline-none focus:border-secondary transition-colors"
                               />
                             </div>
@@ -583,23 +603,23 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
                           </div>
 
                           <div className="w-full md:w-40">
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Dosis / Frecuencia</label>
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">{language === "es" ? "Dosis / Frecuencia" : "Dosificación / Frecuencia"}</label>
                             <input 
                               type="text"
                               value={m.dosage}
                               onChange={(e) => updateMedicationLine(idx, "dosage", e.target.value)}
-                              placeholder="Ej. 1 pastilla c/8 horas"
+                              placeholder={language === "es" ? "Ej. 1 pastilla c/8 horas" : "Ej. 1 pastilla sapa 8 hora"}
                               className="w-full bg-white border border-gray-300 rounded-lg py-2 px-3 text-xs md:text-sm focus:outline-none focus:border-secondary transition-colors"
                             />
                           </div>
 
                           <div className="w-full md:w-32">
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Duración</label>
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">{language === "es" ? "Duración" : "Unaynin"}</label>
                             <input 
                               type="text"
                               value={m.duration}
                               onChange={(e) => updateMedicationLine(idx, "duration", e.target.value)}
-                              placeholder="Ej. 7 días"
+                              placeholder={language === "es" ? "Ej. 7 días" : "Ej. 7 p'unchaw"}
                               className="w-full bg-white border border-gray-300 rounded-lg py-2 px-3 text-xs md:text-sm focus:outline-none focus:border-secondary transition-colors"
                             />
                           </div>
@@ -620,7 +640,7 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
                       onClick={handleSaveConsultation}
                       className="bg-primary hover:bg-[#0f4c81] text-white px-6 py-2.5 rounded-lg text-xs md:text-sm font-semibold transition-colors shadow-sm cursor-pointer"
                     >
-                      Guardar Expediente Clínico
+                      {language === "es" ? "Guardar Expediente Clínico" : "Hampiy Qillqata Waqaychay"}
                     </button>
                   </div>
                 </div>
@@ -629,11 +649,11 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
             ) : (
               /* Tab History clinical timeline list output */
               <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm flex flex-col gap-5">
-                <h3 className="text-base md:text-lg font-bold font-headline text-primary border-b border-gray-100 pb-3">Consultas Médicas Anteriores</h3>
+                <h3 className="text-base md:text-lg font-bold font-headline text-primary border-b border-gray-100 pb-3">{language === "es" ? "Consultas Médicas Anteriores" : "Ñawpaq Hampiy Rimaykuna"}</h3>
                 
                 {patient.consultations?.length === 0 ? (
                   <div className="p-8 text-center text-xs text-gray-400">
-                    No se registran antecedentes médicos anteriores de consulta para este paciente. Use el menú Nueva Consulta para registrar el primero.
+                    {language === "es" ? "No se registran antecedentes médicos anteriores de consulta para este paciente. Use el menú Nueva Consulta para registrar el primero." : "Manam ñawpaq hampiykuna kanchu kay unquqpaq."}
                   </div>
                 ) : (
                   <div className="relative pl-6 border-l border-gray-200 flex flex-col gap-6">
@@ -647,21 +667,21 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
                         </div>
                         <div className="bg-slate-50 p-4 rounded-xl border border-gray-200">
                           <p className="text-sm font-bold text-gray-900 font-headline mb-1">{c.diagnosisTitle}</p>
-                          <p className="text-sm text-slate-700 leading-relaxed font-medium break-words">Notas: "{c.notes}"</p>
+                          <p className="text-sm text-slate-700 leading-relaxed font-medium break-words">{language === "es" ? "Notas: " : "Qillqaykuna: "} "{c.notes}"</p>
 
                           {c.prescriptions?.length > 0 && (
                             <div className="mt-3 border-t border-dashed border-gray-200 pt-2">
-                              <p className="text-[10px] font-bold text-secondary uppercase tracking-wider mb-1">Prescripciones:</p>
+                              <p className="text-[10px] font-bold text-secondary uppercase tracking-wider mb-1">{language === "es" ? "Prescripciones:" : "Hampikuna:"}</p>
                               <div className="flex flex-wrap gap-2">
                                 {c.prescriptions.map((m, idx) => (
                                   <span key={idx} className="bg-cyan-50 border border-cyan-100 text-cyan-800 text-[10px] font-semibold px-2 py-0.5 rounded">
-                                    💊 {m.name} [Frecuencia: {m.dosage}] • {m.duration}
+                                    💊 {m.name} [{language === "es" ? "Frecuencia: " : "Frecuencia: "} {m.dosage}] • {m.duration}
                                   </span>
                                 ))}
                               </div>
                             </div>
                           )}
-                          <p className="text-[10px] text-gray-400 font-sans text-right mt-2">Registrado por: {c.createdBy || "Dr. Yawar Quispe"}</p>
+                          <p className="text-[10px] text-gray-400 font-sans text-right mt-2">{language === "es" ? "Registrado por: " : "Qillqasqa: "}{c.createdBy || "Dr. Yawar Quispe"}</p>
                         </div>
                       </div>
                     ))}
@@ -679,12 +699,12 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
             <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
               <h4 className="text-xs font-bold text-rose-600 flex items-center gap-2 mb-4 uppercase tracking-wider">
                 <AlertTriangle className="w-4 h-4" />
-                <span>Alergias Registradas</span>
+                <span>{language === "es" ? "Alergias Registradas" : "Alergias Waqaychasqa"}</span>
               </h4>
 
               <div className="flex flex-wrap gap-1.5 mb-3">
                 {patient.allergies?.length === 0 ? (
-                  <span className="text-xs text-gray-400 font-sans">Sin alergias detectadas.</span>
+                  <span className="text-xs text-gray-400 font-sans">{language === "es" ? "Sin alergias detectadas." : "Mana alergias tarisqachu."}</span>
                 ) : (
                   patient.allergies.map(a => (
                     <span 
@@ -700,7 +720,7 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
               <form onSubmit={handleAddAllergy} className="mt-4 flex gap-2">
                 <input 
                   type="text"
-                  placeholder="Agregar alergia..."
+                  placeholder={language === "es" ? "Agregar alergia..." : "Alergiata yapay..."}
                   value={newAllergy}
                   onChange={(e) => setNewAllergy(e.target.value)}
                   className="flex-1 bg-white border border-gray-300 rounded-lg py-1.5 px-3 text-xs focus:outline-none focus:border-secondary transition-colors"
@@ -718,18 +738,18 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
             <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
               <h4 className="text-xs font-bold text-secondary flex items-center gap-2 mb-3 uppercase tracking-wider">
                 <Activity className="w-4 h-4" />
-                <span>Enfermedades Crónicas</span>
+                <span>{language === "es" ? "Enfermedades Crónicas" : "Unay Unquykuna"}</span>
               </h4>
 
               <ul className="text-xs text-gray-700 font-sans flex flex-col gap-2">
                 {patient.chronicConditions?.length === 0 ? (
-                  <p className="text-xs text-gray-400 font-sans">Sin condiciones crónicas activas registradas.</p>
+                  <p className="text-xs text-gray-400 font-sans">{language === "es" ? "Sin condiciones crónicas activas registradas." : "Manam unquykuna kanchu."}</p>
                 ) : (
                   patient.chronicConditions.map(c => (
                     <li key={c.id} className="flex justify-between items-center bg-[#F8FAFC] p-2.5 rounded-lg border border-gray-100">
                       <div>
                         <p className="font-bold text-gray-900">{c.name}</p>
-                        <p className="text-[10px] text-gray-400">Diag. desde: {c.diagnosedYear}</p>
+                        <p className="text-[10px] text-gray-400">{language === "es" ? "Diag. desde: " : "Wata: "}{c.diagnosedYear}</p>
                       </div>
                       <span className="text-[9px] font-bold bg-[#E6E8EA] border border-gray-300 text-gray-600 px-1.5 py-0.5 rounded">
                         {c.status === "Active" ? (language === "es" ? "Activo" : "Kachkan") : 
@@ -744,7 +764,7 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
               <form onSubmit={handleAddChronic} className="mt-4 flex gap-2">
                 <input 
                   type="text"
-                  placeholder="Nueva condición..."
+                  placeholder={language === "es" ? "Nueva condición..." : "Musuq unquypaq..."}
                   value={newCondition}
                   onChange={(e) => setNewCondition(e.target.value)}
                   className="flex-1 bg-white border border-gray-300 rounded-lg py-1.5 px-3 text-xs focus:outline-none focus:border-secondary transition-colors"
@@ -763,7 +783,7 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
               <div className="flex justify-between items-center mb-4 border-b border-gray-100 pb-2">
                 <h4 className="text-xs font-bold text-primary flex items-center gap-1.5 uppercase tracking-wider">
                   <FileText className="w-4 h-4 text-secondary" />
-                  <span>Archivos Clínicos e Imágenes</span>
+                  <span>{language === "es" ? "Archivos Clínicos e Imágenes" : "Hampiy Archivo & Ecografíakuna"}</span>
                 </h4>
                 
                 {/* Simulated native upload trigger */}
@@ -776,7 +796,7 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
               {/* Patient files list */}
               <div className="flex-1 flex flex-col gap-2.5">
                 {patient.files?.length === 0 ? (
-                  <p className="text-[11px] text-gray-400 font-sans text-center py-6">No se registran ecografías ni placas de Rayos-X para este paciente.</p>
+                  <p className="text-[11px] text-gray-400 font-sans text-center py-6">{language === "es" ? "No se registran ecografías ni placas de Rayos-X para este paciente." : "Manam ecografíakuna kanchu kay unquqpaq."}</p>
                 ) : (
                   patient.files.map(f => (
                     <div 
@@ -788,12 +808,12 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
                       </div>
                       <div className="flex-1 min-w-0 font-sans">
                         <p className="text-xs font-bold text-gray-900 truncate">{f.name}</p>
-                        <p className="text-[9px] text-gray-400">{f.size} • Uploaded: {f.uploadDate}</p>
+                        <p className="text-[9px] text-gray-400">{f.size} • {language === "es" ? "Cargado: " : "Cargado: "}{f.uploadDate}</p>
                       </div>
                       
                       {/* Simulated preview button */}
                       <button 
-                        onClick={() => notify({ type: "info", title: "Vista previa clínica", message: `Abriendo ${f.name} para previsualización.` })}
+                        onClick={() => notify({ type: "info", title: language === "es" ? "Vista previa clínica" : "Ñawpaq qhaway", message: language === "es" ? `Abriendo ${f.name} para previsualización.` : `Kichachkan ${f.name} ñawpaq qhawaypaq.` })}
                         className="text-gray-400 hover:text-primary transition-colors cursor-pointer"
                       >
                         <Eye className="w-3.5 h-3.5" />
@@ -810,8 +830,8 @@ export default function PatientClinicalRecord({ language, patientId, onBack, onR
                 className="mt-4 border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-center bg-[#F8FAFC] opacity-75 hover:opacity-100 transition-opacity cursor-pointer group"
               >
                 <Upload className="w-7 h-7 text-gray-400 mb-1.5 group-hover:scale-110 transition-transform" />
-                <p className="text-[11px] font-bold text-[#42474f]">Arrastre ecografías o placas de Rayos X aquí</p>
-                <p className="text-[9px] text-gray-400 mt-1">Formato: PNG, JPG, PDF</p>
+                <p className="text-[11px] font-bold text-[#42474f]">{language === "es" ? "Arrastre ecografías o placas de Rayos X aquí" : "Kayman ecografíakunata chutamuy"}</p>
+                <p className="text-[9px] text-gray-400 mt-1">{language === "es" ? "Formato: PNG, JPG, PDF" : "Formato: PNG, JPG, PDF"}</p>
               </div>
             </div>
 

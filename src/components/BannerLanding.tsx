@@ -64,7 +64,7 @@ export default function BannerLanding({ language, onSetLanguage, onLogin }: Land
           }
           onLogin(data.user, data.token);
         } else {
-          setErrorMsg(data.error || "Para personal, use la contraseña: admin");
+          setErrorMsg(data.error || (language === "es" ? "Para personal, use la contraseña: admin" : "Hampiqkunapaq, llamk'achiy kay mast'ariyta: admin"));
         }
         setLoading(false);
         return;
@@ -81,7 +81,7 @@ export default function BannerLanding({ language, onSetLanguage, onLogin }: Land
         if (data.success) {
           onLogin(data.user, data.token);
         } else {
-          setErrorMsg(data.error || "Error al iniciar sesión");
+          setErrorMsg(data.error || (language === "es" ? "Error al iniciar sesión" : "Yaykuypi pantay kan"));
         }
       } else {
         const res = await fetch("/api/auth/register", {
@@ -93,11 +93,11 @@ export default function BannerLanding({ language, onSetLanguage, onLogin }: Land
         if (res.ok && data.success) {
           onLogin(data.user, data.token);
         } else {
-          setErrorMsg(data.error || "Error al registrar la cuenta");
+          setErrorMsg(data.error || (language === "es" ? "Error al registrar la cuenta" : "Yupay qillqakuypi pantay kan"));
         }
       }
     } catch (e) {
-      setErrorMsg("Error de conexión al servidor");
+      setErrorMsg(language === "es" ? "Error de conexión al servidor" : "Chirimanta t'inkinakuy pantay");
     } finally {
       setLoading(false);
     }
@@ -169,9 +169,9 @@ export default function BannerLanding({ language, onSetLanguage, onLogin }: Land
                   <Stethoscope className="w-10 h-10 text-white" />
                 </div>
               </div>
-              <h4 className="text-xl font-bold font-headline text-white tracking-wide">Red Medica Andina de Telemedicina</h4>
+              <h4 className="text-xl font-bold font-headline text-white tracking-wide">{language === "es" ? "Red Médica Andina de Telemedicina" : "Antikunap Karu Hampiy Llika"}</h4>
               <p className="text-cyan-205 text-xs mt-2 max-w-xs leading-relaxed font-sans opacity-90">
-                Medicos bilingues conectados para atender, orientar y dar seguimiento clinico a comunidades rurales del Cusco.
+                {language === "es" ? "Médicos bilingües conectados para atender, orientar y dar seguimiento clínico a comunidades rurales del Cusco." : "Iskay simipi rimaq hampiqkuna t'inkisqa kachkanku Qosqop ayllunkunata qhawanankupaq."}
               </p>
               
               {/* Decorative SVG Mountain silhouette inside the card */}
@@ -199,10 +199,10 @@ export default function BannerLanding({ language, onSetLanguage, onLogin }: Land
                 <DoorOpen className="w-6 h-6" />
               </div>
               <h2 className="text-2xl font-black text-slate-800 font-headline mb-1">
-                {authMode === "login" ? "Bienvenido de vuelta" : "Crear una cuenta"}
+                {authMode === "login" ? (language === "es" ? "Bienvenido de vuelta" : "Allin hamuy kutimusqaykiman") : (language === "es" ? "Crear una cuenta" : "Musuq yupayta kamariy")}
               </h2>
               <p className="text-sm text-slate-500 mb-6">
-                {authMode === "login" ? "Ingresa tus credenciales para continuar." : "Regístrate para acceder a tus recetas clínicas."}
+                {authMode === "login" ? (language === "es" ? "Ingresa tus credenciales para continuar." : "Yaykuna willaykunata qillqay.") : (language === "es" ? "Regístrate para acceder a tus recetas clínicas." : "Qillqakuy hampiy recetaykikunata chaskinaykipaq.")}
               </p>
 
               {/* Role Toggle */}
@@ -211,13 +211,13 @@ export default function BannerLanding({ language, onSetLanguage, onLogin }: Land
                   onClick={() => setAuthRole("patient")}
                   className={`flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${authRole === "patient" ? "bg-white text-blue-700 shadow-sm" : "text-slate-500"}`}
                 >
-                  <UserCheck className="w-4 h-4" /> Paciente
+                  <UserCheck className="w-4 h-4" /> {language === "es" ? "Paciente" : "Qhaliyamuq"}
                 </button>
                 <button 
                   onClick={() => setAuthRole("staff")}
                   className={`flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${authRole === "staff" ? "bg-white text-blue-700 shadow-sm" : "text-slate-500"}`}
                 >
-                  <Stethoscope className="w-4 h-4" /> Personal
+                  <Stethoscope className="w-4 h-4" /> {language === "es" ? "Personal" : "Hampiqkuna"}
                 </button>
               </div>
 
@@ -231,21 +231,21 @@ export default function BannerLanding({ language, onSetLanguage, onLogin }: Land
                 {authMode === "register" && authRole === "patient" && (
                   <>
                     <div>
-                      <label className="text-xs font-bold text-slate-600 ml-1 mb-1 block">Nombre Completo</label>
-                      <input type="text" required value={name} onChange={e => setName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all" placeholder="Ej. Juan Mamani" />
+                      <label className="text-xs font-bold text-slate-600 ml-1 mb-1 block">{language === "es" ? "Nombre Completo" : "Hunta Suti"}</label>
+                      <input type="text" required value={name} onChange={e => setName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all" placeholder={language === "es" ? "Ej. Juan Mamani" : "Kayhina: Juan Mamani"} />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="text-xs font-bold text-slate-600 ml-1 mb-1 block">Celular</label>
-                        <input type="text" value={phone} onChange={e => setPhone(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-all" placeholder="Opcional" />
+                        <label className="text-xs font-bold text-slate-600 ml-1 mb-1 block">{language === "es" ? "Celular" : "Kuyuq Rimanaku"}</label>
+                        <input type="text" value={phone} onChange={e => setPhone(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-all" placeholder={language === "es" ? "Opcional" : "Munaspaqa"} />
                       </div>
                       <div>
-                        <label className="text-xs font-bold text-slate-600 ml-1 mb-1 block">Comunidad</label>
+                        <label className="text-xs font-bold text-slate-600 ml-1 mb-1 block">{language === "es" ? "Comunidad" : "Llaqta"}</label>
                         <select value={location} onChange={e => setLocation(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-all">
-                          <option>Urubamba</option>
-                          <option>Pisac</option>
-                          <option>Calca</option>
-                          <option>Cusco</option>
+                          <option value="Urubamba">{language === "es" ? "Urubamba" : "Urupampa"}</option>
+                          <option value="Pisac">{language === "es" ? "Pisac" : "P'isaq"}</option>
+                          <option value="Calca">{language === "es" ? "Calca" : "Qalqa"}</option>
+                          <option value="Cusco">{language === "es" ? "Cusco" : "Qosqo"}</option>
                         </select>
                       </div>
                     </div>
@@ -254,7 +254,7 @@ export default function BannerLanding({ language, onSetLanguage, onLogin }: Land
 
                 <div>
                   <label className="text-xs font-bold text-slate-600 ml-1 mb-1 block">
-                    {authRole === "staff" ? "Usuario / DNI" : "Número de DNI"}
+                    {authRole === "staff" ? (language === "es" ? "Usuario / DNI" : "Llamk'aq / DNI") : (language === "es" ? "Número de DNI" : "DNI Yupay")}
                   </label>
                   <input 
                     type="text" 
@@ -262,12 +262,12 @@ export default function BannerLanding({ language, onSetLanguage, onLogin }: Land
                     value={dni} 
                     onChange={e => setDni(e.target.value)} 
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all" 
-                    placeholder="Ej. 45678912" 
+                    placeholder={language === "es" ? "Ej. 45678912" : "Kayhina: 45678912"} 
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-600 ml-1 mb-1 block">Contraseña</label>
+                  <label className="text-xs font-bold text-slate-600 ml-1 mb-1 block">{language === "es" ? "Contraseña" : "Pakasqa Rima"}</label>
                   <input 
                     type="password" 
                     required 
@@ -283,16 +283,16 @@ export default function BannerLanding({ language, onSetLanguage, onLogin }: Land
                   disabled={loading}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-3.5 rounded-xl transition-all shadow-md mt-2 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  {loading ? "Procesando..." : (authMode === "login" ? "Ingresar al Portal" : "Registrarse Ahora")}
+                  {loading ? (language === "es" ? "Procesando..." : "Rurachkan...") : (authMode === "login" ? (language === "es" ? "Ingresar al Portal" : "Portalman Jaykuy") : (language === "es" ? "Registrarse Ahora" : "Kunan Qillqakuy"))}
                 </button>
               </form>
 
               {authRole === "patient" && (
                 <div className="mt-6 text-center text-xs font-medium text-slate-500">
                   {authMode === "login" ? (
-                    <>¿No tienes una cuenta? <button type="button" onClick={() => setAuthMode("register")} className="text-blue-600 font-bold hover:underline">Regístrate aquí</button></>
+                    <>{language === "es" ? "¿No tienes una cuenta? " : "Mana yupayniyuqchu kanki? "}<button type="button" onClick={() => setAuthMode("register")} className="text-blue-600 font-bold hover:underline">{language === "es" ? "Regístrate aquí" : "Kaypi qillqakuy"}</button></>
                   ) : (
-                    <>¿Ya tienes una cuenta? <button type="button" onClick={() => setAuthMode("login")} className="text-blue-600 font-bold hover:underline">Inicia sesión</button></>
+                    <>{language === "es" ? "¿Ya tienes una cuenta? " : "Ñach yupayniyuqña kanki? "}<button type="button" onClick={() => setAuthMode("login")} className="text-blue-600 font-bold hover:underline">{language === "es" ? "Inicia sesión" : "Yaykuy"}</button></>
                   )}
                 </div>
               )}

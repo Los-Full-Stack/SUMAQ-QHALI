@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Patient, Appointment, RecentActivity, Language } from "../types";
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from "../store/useAuthStore";
 import { 
   Users, AlertCircle, Video, Calendar, Search, ChevronLeft, ChevronRight, Clock, FileSpreadsheet, Package, Activity, Plus, Hospital, LogOut, HelpCircle, TrendingUp, MapPin, Globe, Signal, Trash2, Pill, ClipboardList, Languages, UserPlus
@@ -138,7 +139,7 @@ export default function DoctorDashboard({
             setQueueError(null);
             return;
           }
-          setQueueError(e.message || "Error cargando la cola");
+          setQueueError(e.message || (language === "es" ? "Error cargando la cola" : "Suyay cola cargaypi pantay"));
         }
       }, 3000);
     } else {
@@ -157,7 +158,11 @@ export default function DoctorDashboard({
       setIsCallActive(true);
     } catch (e) {
       console.error(e);
-      notify({ type: "error", title: "No se pudo iniciar la llamada", message: "La cola de telemedicina no respondió correctamente." });
+      notify({ 
+        type: "error", 
+        title: language === "es" ? "No se pudo iniciar la llamada" : "Manan atikurqanchu waqyay qallariyta", 
+        message: language === "es" ? "La cola de telemedicina no respondió correctamente." : "Telemedicina suyana mana allintachu kutichimun." 
+      });
     }
   };
 
@@ -221,7 +226,11 @@ export default function DoctorDashboard({
       });
       
       if (res.ok) {
-        notify({ type: "success", title: "Expediente guardado", message: "La consulta de telemedicina quedó registrada." });
+        notify({ 
+          type: "success", 
+          title: language === "es" ? "Expediente guardado" : "Hampiy qillqa waqaychasqa", 
+          message: language === "es" ? "La consulta de telemedicina quedó registrada." : "Telemedicina tapukuy qillqasqa kapun." 
+        });
         try {
           await api.leaveQueue(activeCallPatientId);
         } catch (e) {
@@ -230,11 +239,19 @@ export default function DoctorDashboard({
         handleEndCall(); // Cuelga la llamada y limpia el formulario
       } else {
         const errorData = await res.json().catch(() => ({}));
-        notify({ type: "error", title: "No se pudo guardar", message: errorData.error || res.statusText });
+        notify({ 
+          type: "error", 
+          title: language === "es" ? "No se pudo guardar" : "Manan atikurqanchu waqaychayta", 
+          message: errorData.error || res.statusText 
+        });
       }
     } catch (e: any) {
       console.error(e);
-      notify({ type: "error", title: "Error de red", message: e.message || "No fue posible guardar el expediente." });
+      notify({ 
+        type: "error", 
+        title: language === "es" ? "Error de red" : "Llika pantay", 
+        message: e.message || (language === "es" ? "No fue posible guardar el expediente." : "Manan atikurqanchu hampiy qillqa waqaychayta.") 
+      });
     } finally {
       setIsSavingRecord(false);
     }
@@ -320,7 +337,7 @@ export default function DoctorDashboard({
     <div className="flex-1 overflow-y-auto beautiful-scrollbar bg-slate-50 font-sans w-full relative min-h-screen">
       {/* Premium Background Banner */}
       {!activeCallRoom && (
-        <div className="absolute top-0 left-0 right-0 h-[220px] bg-gradient-to-br from-[#00355F] via-[#026783] to-[#0F172A] z-0 overflow-hidden rounded-b-[2.5rem] shadow-lg transition-all duration-500">
+        <div className="absolute top-0 left-0 right-0 h-[220px] bg-gradient-to-br from-[var(--color-primary)] via-[var(--color-secondary)] to-[var(--color-background)] z-0 overflow-hidden rounded-b-[2.5rem] shadow-lg transition-all duration-500">
           <div className="absolute top-0 right-0 -mt-20 -mr-20 w-96 h-96 bg-white opacity-5 rounded-full blur-3xl"></div>
           <div className="absolute bottom-0 left-10 w-72 h-72 bg-blue-400 opacity-10 rounded-full blur-3xl"></div>
         </div>
@@ -336,7 +353,7 @@ export default function DoctorDashboard({
                 {language === "es" ? `Buen día, ${user?.name || 'Dr. Yawar Quispe'}` : `Allillanchu t'uta, ${user?.name || 'Dr. Yawar Quispe'}`}
               </h2>
               <p className="text-cyan-100/90 font-medium mt-1 text-xs md:text-sm">
-                Centro de Telemedicina y Triage Rural
+                {language === "es" ? "Centro de Telemedicina y Triage Rural" : "Karuhampiy Ayllu Triage Chawpi"}
               </p>
             </div>
             
@@ -346,7 +363,7 @@ export default function DoctorDashboard({
                   onClick={onOpenRegisterModal}
                   className="bg-blue-500 hover:bg-blue-400 text-white border border-blue-400/50 backdrop-blur-md px-3.5 py-2 rounded-2xl text-xs font-bold shadow-md transition-all duration-300 hover:scale-105 flex items-center gap-2"
                 >
-                  <UserPlus className="w-3.5 h-3.5" /> Registrar
+                  <UserPlus className="w-3.5 h-3.5" /> {language === "es" ? "Registrar" : "Qillqay"}
                 </button>
               )}
               <button 
@@ -407,7 +424,7 @@ export default function DoctorDashboard({
                 }`}
               >
                 <span className="flex items-center justify-center gap-1.5">
-                  <Video className="w-4 h-4" /> Videollamada
+                  <Video className="w-4 h-4" /> {language === "es" ? "Videollamada" : "Karu Rikuy Rimay"}
                 </span>
               </button>
               <button
@@ -420,7 +437,7 @@ export default function DoctorDashboard({
                 }`}
               >
                 <span className="flex items-center justify-center gap-1.5">
-                  <ClipboardList className="w-4 h-4" /> Ficha & Receta
+                  <ClipboardList className="w-4 h-4" /> {language === "es" ? "Ficha & Receta" : "Qillqa & Hampi Qillqa"}
                 </span>
               </button>
             </div>
@@ -430,7 +447,7 @@ export default function DoctorDashboard({
               activeMobileTab === "video" ? "flex" : "hidden lg:flex"
             }`}>
               <div className="p-4 bg-slate-900 text-white flex justify-between items-center">
-                <span className="font-bold flex items-center gap-2"><Video className="text-blue-400 w-5 h-5"/> Videollamada en Curso</span>
+                <span className="font-bold flex items-center gap-2"><Video className="text-blue-400 w-5 h-5"/> {language === "es" ? "Videollamada en Curso" : "Karu Rikuy Rimayñam kachkan"}</span>
               </div>
               <div className="flex-1 min-h-0">
                 <JitsiCall roomName={activeCallRoom} displayName={user?.name || 'Dr. Yawar Quispe'} onEndCall={handleEndCall} />
@@ -441,9 +458,9 @@ export default function DoctorDashboard({
               activeMobileTab === "record" ? "flex" : "hidden lg:flex"
             }`}>
               <div className="p-4 bg-blue-50 border-b border-blue-100 flex justify-between items-center">
-                <span className="font-bold text-blue-800 flex items-center gap-2"><ClipboardList className="w-5 h-5"/> Historial Clínico Rápido</span>
+                <span className="font-bold text-blue-800 flex items-center gap-2"><ClipboardList className="w-5 h-5"/> {language === "es" ? "Historial Clínico Rápido" : "Utqay Hampiy Qillqasqa"}</span>
                 <button onClick={() => setShowFullRecord(true)} className="text-xs bg-white border border-blue-200 px-3 py-1.5 rounded-lg text-blue-700 font-bold hover:bg-blue-100 shadow-sm transition-colors">
-                  Ver Expediente Completo
+                  {language === "es" ? "Ver Expediente Completo" : "Tukuynin Hampiy Qillqata Qhaway"}
                 </button>
               </div>
               <div className="p-6 flex-1 overflow-y-auto beautiful-scrollbar font-sans text-sm">
@@ -463,10 +480,10 @@ export default function DoctorDashboard({
                     <div className="mb-6 bg-slate-55 rounded-2xl p-4 border border-slate-200">
                       <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                         <Pill className="w-4 h-4 text-emerald-600 animate-pulse" />
-                        Tratamiento Actual (Consultas Previas)
+                        {language === "es" ? "Tratamiento Actual (Consultas Previas)" : "Kunan Hampiy (Ñawpaq Tapuykuna)"}
                       </label>
                       {allPastPrescriptions.length === 0 ? (
-                        <p className="text-xs text-slate-400 italic">No se registran tratamientos previos en el expediente.</p>
+                        <p className="text-xs text-slate-400 italic">{language === "es" ? "No se registran tratamientos previos en el expediente." : "Manan ñawpaq hampiykuna qillqasqachu kachkan hampiy qillqapi."}</p>
                       ) : (
                         <div className="flex flex-col gap-2.5 max-h-[180px] overflow-y-auto pr-1 beautiful-scrollbar">
                           {allPastPrescriptions.map((presc: any, pIdx: number) => {
@@ -479,7 +496,7 @@ export default function DoctorDashboard({
                                       {presc.name}
                                     </span>
                                     <div className="text-[10px] text-slate-500 font-medium mt-0.5">
-                                      Dosis: {presc.dosage} | Duración: {presc.duration}
+                                      {language === "es" ? "Dosis:" : "Tupuy:"} {presc.dosage} | {language === "es" ? "Duración:" : "Pacha:"} {presc.duration}
                                     </div>
                                   </div>
                                   {!isSuspended ? (
@@ -488,7 +505,7 @@ export default function DoctorDashboard({
                                       onClick={() => setShowSuspensionModal(presc)}
                                       className="text-[10px] bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer shrink-0"
                                     >
-                                      Cortar
+                                      {language === "es" ? "Cortar" : "P'itiy"}
                                     </button>
                                   ) : (
                                     <span className="text-[9px] bg-red-50 text-red-600 border border-red-200 font-black uppercase px-2 py-0.5 rounded-lg shrink-0">
@@ -510,20 +527,20 @@ export default function DoctorDashboard({
                   );
                 })()}
 
-                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Notas de la Consulta (Tiempo Real)</label>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">{language === "es" ? "Notas de la Consulta (Tiempo Real)" : "Tapuypa Qillqasqankuna (Kunan Pacha)"}</label>
                 <textarea 
                   value={quickNotes}
                   onChange={(e) => setQuickNotes(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 min-h-[150px] mb-6 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-inner" 
-                  placeholder="Escribe aquí los síntomas, diagnóstico..."
+                  placeholder={language === "es" ? "Escribe aquí los síntomas, diagnóstico..." : "Kaypi qillqay unquypa unanchankuna, hampiy..."}
                 ></textarea>
                 
                 <div className="flex justify-between items-center mb-2">
                   <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                    Prescripción Médica (Medicamentos)
+                    {language === "es" ? "Prescripción Médica (Medicamentos)" : "Hampi Qillqana (Hampikuna)"}
                   </label>
                   <span className="text-blue-600 text-[11px] font-bold flex items-center gap-1">
-                    <Languages className="w-3.5 h-3.5"/> Traducción IA Automática
+                    <Languages className="w-3.5 h-3.5"/> {language === "es" ? "Traducción IA Automática" : "Kikinmanta IA Tikray"}
                   </span>
                 </div>
 
@@ -537,7 +554,7 @@ export default function DoctorDashboard({
                         <div className="relative flex-1">
                           <input
                             type="text"
-                            placeholder="Nombre del medicamento (ej: Paracetamol 500mg)"
+                            placeholder={language === "es" ? "Nombre del medicamento (ej: Paracetamol 500mg)" : "Hampipa sutin (ej: Paracetamol 500mg)"}
                             value={presc.name}
                             onFocus={() => setFocusedPrescIdx(idx)}
                             onBlur={() => setTimeout(() => setFocusedPrescIdx(null), 250)}
@@ -556,7 +573,7 @@ export default function DoctorDashboard({
                                 med.name.toLowerCase().includes(presc.name.toLowerCase())
                               ).length === 0 ? (
                                 <div className="px-3 py-2 text-slate-400 italic">
-                                  No se encontraron coincidencias. Se guardará como texto libre.
+                                  {language === "es" ? "No se encontraron coincidencias. Se guardará como texto libre." : "Manan tarikuñchu. Qasi qillqasqa hinan waqaychasqa kanqa."}
                                 </div>
                               ) : (
                                 medicinesCatalog
@@ -593,10 +610,10 @@ export default function DoctorDashboard({
                         {/* Dosis (Cantidad + Frecuencia) */}
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <span className="text-[9px] font-bold text-slate-400 block mb-0.5">Dosis (Cantidad)</span>
+                            <span className="text-[9px] font-bold text-slate-400 block mb-0.5">{language === "es" ? "Dosis (Cantidad)" : "Hampi Tupuy (Chika)"}</span>
                             <input
                               type="text"
-                              placeholder="Ej: 1 tableta / 5ml"
+                              placeholder={language === "es" ? "Ej: 1 tableta / 5ml" : "Chika: 1 tableta / 5ml"}
                               value={presc.doseQty || ""}
                               onChange={(e) => {
                                 const newPrescs = [...quickPrescriptions];
@@ -607,7 +624,7 @@ export default function DoctorDashboard({
                             />
                           </div>
                           <div>
-                            <span className="text-[9px] font-bold text-slate-400 block mb-0.5">Frecuencia</span>
+                            <span className="text-[9px] font-bold text-slate-400 block mb-0.5">{language === "es" ? "Frecuencia" : "Hayk'a Kuti"}</span>
                             <select
                               value={presc.doseFreq || "cada 8 horas"}
                               onChange={(e) => {
@@ -617,14 +634,14 @@ export default function DoctorDashboard({
                               }}
                               className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all cursor-pointer font-semibold text-slate-750"
                             >
-                              <option value="cada 4 horas">cada 4 horas</option>
-                              <option value="cada 6 horas">cada 6 horas</option>
-                              <option value="cada 8 horas">cada 8 horas</option>
-                              <option value="cada 12 horas">cada 12 horas</option>
-                              <option value="cada 24 horas (una al día)">cada 24 horas (al día)</option>
-                              <option value="con cada comida">con cada comida</option>
-                              <option value="en ayunas">en ayunas</option>
-                              <option value="antes de acostarse">antes de acostarse</option>
+                              <option value="cada 4 horas">{language === "es" ? "cada 4 horas" : "sapa 4 pacha"}</option>
+                              <option value="cada 6 horas">{language === "es" ? "cada 6 horas" : "sapa 6 pacha"}</option>
+                              <option value="cada 8 horas">{language === "es" ? "cada 8 horas" : "sapa 8 pacha"}</option>
+                              <option value="cada 12 horas">{language === "es" ? "cada 12 horas" : "sapa 12 pacha"}</option>
+                              <option value="cada 24 horas (una al día)">{language === "es" ? "cada 24 horas (al día)" : "sapa 24 pacha (p'unchaypi huk kuti)"}</option>
+                              <option value="con cada comida">{language === "es" ? "con cada comida" : "sapa mikhuywan"}</option>
+                              <option value="en ayunas">{language === "es" ? "en ayunas" : "ch'usaq ñut'upi"}</option>
+                              <option value="antes de acostarse">{language === "es" ? "antes de acostarse" : "manaraq puñuchkaspa"}</option>
                             </select>
                           </div>
                         </div>
@@ -632,7 +649,7 @@ export default function DoctorDashboard({
                         {/* Duración (Cantidad + Unidad) */}
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <span className="text-[9px] font-bold text-slate-400 block mb-0.5">Duración (Número)</span>
+                            <span className="text-[9px] font-bold text-slate-400 block mb-0.5">{language === "es" ? "Duración (Número)" : "Duración (Yupa)"}</span>
                             <input
                               type="number"
                               min="1"
@@ -647,7 +664,7 @@ export default function DoctorDashboard({
                             />
                           </div>
                           <div>
-                            <span className="text-[9px] font-bold text-slate-400 block mb-0.5">Unidad de Tiempo</span>
+                            <span className="text-[9px] font-bold text-slate-400 block mb-0.5">{language === "es" ? "Unidad de Tiempo" : "Pacha Tupuy"}</span>
                             <select
                               value={presc.durUnit || "días"}
                               onChange={(e) => {
@@ -657,10 +674,10 @@ export default function DoctorDashboard({
                               }}
                               className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all cursor-pointer font-semibold text-slate-750"
                             >
-                              <option value="días">días</option>
-                              <option value="semanas">semanas</option>
-                              <option value="meses">meses</option>
-                              <option value="dosis única">dosis única</option>
+                              <option value="días">{language === "es" ? "días" : "p'unchaykuna"}</option>
+                              <option value="semanas">{language === "es" ? "semanas" : "qanchischakuna"}</option>
+                              <option value="meses">{language === "es" ? "meses" : "killakuna"}</option>
+                              <option value="dosis única">{language === "es" ? "dosis única" : "huk tupuylla"}</option>
                             </select>
                           </div>
                         </div>
@@ -674,7 +691,7 @@ export default function DoctorDashboard({
                             setQuickPrescriptions(newPrescs);
                           }}
                           className="absolute top-2 right-2 text-slate-400 hover:text-red-500 p-1 rounded-md hover:bg-slate-100 transition-colors"
-                          title="Eliminar medicamento"
+                          title={language === "es" ? "Eliminar medicamento" : "Hampita qulluy"}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -688,7 +705,7 @@ export default function DoctorDashboard({
                   onClick={() => setQuickPrescriptions([...quickPrescriptions, { name: "", dosage: "", duration: "", doseQty: "1 tableta", doseFreq: "cada 8 horas", durQty: "7", durUnit: "días" }])}
                   className="w-full mt-3 flex items-center justify-center gap-1.5 py-2 px-4 border border-dashed border-slate-300 hover:border-blue-400 hover:text-blue-600 rounded-xl text-xs font-bold text-slate-500 bg-white hover:bg-blue-50/20 shadow-sm transition-all"
                 >
-                  <Plus className="w-4 h-4"/> Agregar Medicamento
+                  <Plus className="w-4 h-4"/> {language === "es" ? "Agregar Medicamento" : "Hampita yapay"}
                 </button>
                 
                 <button 
@@ -696,7 +713,7 @@ export default function DoctorDashboard({
                   disabled={isSavingRecord}
                   className="w-full mt-6 bg-slate-900 hover:bg-slate-800 disabled:opacity-70 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
                 >
-                  {isSavingRecord ? "Guardando..." : "Guardar en Expediente y Finalizar"}
+                  {isSavingRecord ? (language === "es" ? "Guardando..." : "Waqaychachkan...") : (language === "es" ? "Guardar en Expediente y Finalizar" : "Hampiy Qillqapi Waqaychay Tukuywan")}
                 </button>
               </div>
             </div>
@@ -711,7 +728,7 @@ export default function DoctorDashboard({
                 <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-blue-500/5 rounded-full blur-xl group-hover:bg-blue-500/10 transition-colors"></div>
                 <div className="flex justify-between items-start">
                   <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">En Cola de Triage</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{language === "es" ? "En Cola de Triage" : "Triage Suyaypi"}</p>
                     <h3 className="text-3xl font-black text-slate-800 mt-2 font-headline">{queuePatients.length}</h3>
                   </div>
                   <div className={`p-3 rounded-2xl ${isTelemedicineActive ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-400'} flex items-center justify-center`}>
@@ -731,7 +748,7 @@ export default function DoctorDashboard({
                 <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-cyan-500/5 rounded-full blur-xl group-hover:bg-cyan-500/10 transition-colors"></div>
                 <div className="flex justify-between items-start">
                   <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Atendidos Hoy</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{language === "es" ? "Atendidos Hoy" : "Kunan punchay atendesqa"}</p>
                     <h3 className="text-3xl font-black text-slate-800 mt-2 font-headline">
                       {doctorAppointments.filter(a => a.status === 'Completed').length}
                     </h3>
@@ -742,7 +759,7 @@ export default function DoctorDashboard({
                 </div>
                 <div className="mt-4 flex items-center gap-1.5 text-xs">
                   <TrendingUp className="w-4 h-4 text-cyan-500" />
-                  <span className="font-semibold text-slate-500">Actualizado hace unos instantes</span>
+                  <span className="font-semibold text-slate-500">{language === "es" ? "Actualizado hace unos instantes" : "Kallpachasqa chaylla"}</span>
                 </div>
               </div>
 
@@ -751,7 +768,7 @@ export default function DoctorDashboard({
                 <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-sky-500/5 rounded-full blur-xl group-hover:bg-sky-500/10 transition-colors"></div>
                 <div className="flex justify-between items-start">
                   <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tiempo Promedio</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{language === "es" ? "Tiempo Promedio" : "Kuska Pacha"}</p>
                     <h3 className="text-3xl font-black text-slate-800 mt-2 font-headline">14 min</h3>
                   </div>
                   <div className="p-3 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center">
@@ -759,7 +776,7 @@ export default function DoctorDashboard({
                   </div>
                 </div>
                 <div className="mt-4 text-xs font-semibold text-slate-400">
-                  Meta del centro de salud: <span className="text-sky-600 font-bold">12 min</span>
+                  {language === "es" ? "Meta del centro de salud:" : "Hampina wasip taripanan:"} <span className="text-sky-600 font-bold">12 min</span>
                 </div>
               </div>
             </div>

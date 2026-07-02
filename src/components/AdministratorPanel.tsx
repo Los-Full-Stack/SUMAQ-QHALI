@@ -207,13 +207,13 @@ export default function AdministratorPanel({ language, recentActivities, onSetLa
   ];
 
   const daysMap: Record<number, string> = {
-    0: "Domingo",
-    1: "Lunes",
-    2: "Martes",
-    3: "Miércoles",
-    4: "Jueves",
-    5: "Viernes",
-    6: "Sábado"
+    0: language === "es" ? "Domingo" : "Intichaw",
+    1: language === "es" ? "Lunes" : "Killachaw",
+    2: language === "es" ? "Martes" : "Atipachaw",
+    3: language === "es" ? "Miércoles" : "Quyllurchaw",
+    4: language === "es" ? "Jueves" : "Illapachaw",
+    5: language === "es" ? "Viernes" : "Ch'askachaw",
+    6: language === "es" ? "Sábado" : "K'uychichaw"
   };
 
   useEffect(() => {
@@ -447,7 +447,7 @@ export default function AdministratorPanel({ language, recentActivities, onSetLa
             }`}
           >
             <Calendar className="w-4 h-4" />
-            Gestión de Horarios
+            {language === "es" ? "Gestión de Horarios" : "Horariokuna Allichay"}
           </button>
           <button
             onClick={() => setActiveTab('agent')}
@@ -458,7 +458,7 @@ export default function AdministratorPanel({ language, recentActivities, onSetLa
             }`}
           >
             <Activity className="w-4 h-4 text-rose-500 animate-pulse" />
-            Observatorio Crónico IA
+            {language === "es" ? "Observatorio Crónico IA" : "IA Unquykuna Qhawana"}
           </button>
         </div>
 
@@ -475,7 +475,7 @@ export default function AdministratorPanel({ language, recentActivities, onSetLa
                 <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-4 border border-blue-100">
                   <Calendar className="w-6 h-6" />
                 </div>
-                <p className="text-sm font-bold text-slate-500">Total Bloques Horarios</p>
+                <p className="text-sm font-bold text-slate-500">{language === "es" ? "Total Bloques Horarios" : "Llapan Horariokuna"}</p>
                 <h4 className="text-4xl font-black font-headline text-slate-800 mt-1">{shifts.length}</h4>
               </div>
 
@@ -486,7 +486,7 @@ export default function AdministratorPanel({ language, recentActivities, onSetLa
                 <div className="w-12 h-12 bg-cyan-50 text-cyan-600 rounded-2xl flex items-center justify-center mb-4 border border-cyan-100">
                   <Stethoscope className="w-6 h-6" />
                 </div>
-                <p className="text-sm font-bold text-slate-500">Médicos Configurados</p>
+                <p className="text-sm font-bold text-slate-500">{language === "es" ? "Médicos Configurados" : "Allichasqa Hampiqkuna"}</p>
                 <h4 className="text-4xl font-black font-headline text-slate-800 mt-1">
                   {new Set(shifts.map(s => s.DoctorName)).size}
                 </h4>
@@ -499,7 +499,7 @@ export default function AdministratorPanel({ language, recentActivities, onSetLa
                 <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mb-4 border border-purple-100">
                   <Layers className="w-6 h-6" />
                 </div>
-                <p className="text-sm font-bold text-slate-500">Especialidades Cubiertas</p>
+                <p className="text-sm font-bold text-slate-500">{language === "es" ? "Especialidades Cubiertas" : "Especialidadkuna"}</p>
                 <h4 className="text-4xl font-black font-headline text-slate-800 mt-1">
                   {new Set(shifts.map(s => s.Specialty)).size}
                 </h4>
@@ -512,7 +512,7 @@ export default function AdministratorPanel({ language, recentActivities, onSetLa
                 <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-4 border border-blue-100">
                   <Clock className="w-6 h-6" />
                 </div>
-                <p className="text-sm font-bold text-slate-500">Turnos Habilitados</p>
+                <p className="text-sm font-bold text-slate-500">{language === "es" ? "Turnos Habilitados" : "Llamk'ana Horakuna"}</p>
                 <h4 className="text-4xl font-black font-headline text-slate-800 mt-1">
                   {shifts.filter(s => s.IsActive).length}
                 </h4>
@@ -524,41 +524,41 @@ export default function AdministratorPanel({ language, recentActivities, onSetLa
               <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-md relative overflow-hidden">
                 <h3 className="text-lg font-bold font-headline text-slate-800 mb-6 flex items-center gap-2">
                   <CalendarPlus className="text-blue-600" />
-                  Asignar Nuevo Turno
+                  {language === "es" ? "Asignar Nuevo Turno" : "Musuq Hora Churaq"}
                 </h3>
                 <form onSubmit={handleAddShifts} className="flex flex-col gap-5">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Médico</label>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">{language === "es" ? "Médico" : "Hampiq"}</label>
                     <select
                       value={selectedDoctor}
                       onChange={(e) => handleDoctorChange(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-sm font-medium text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer"
                     >
-                      <option>Dr. Yawar Quispe</option>
-                      <option>Dra. Killa Choque</option>
-                      <option>Dra. Suyana Condori</option>
-                      <option>Dr. Inti Huaman</option>
-                      <option>Enf. Sayri Rimachi</option>
+                      <option value="Dr. Yawar Quispe">{language === "es" ? "Dr. Yawar Quispe" : "Hampiq Yawar Quispe"}</option>
+                      <option value="Dra. Killa Choque">{language === "es" ? "Dra. Killa Choque" : "Hampiq Killa Choque"}</option>
+                      <option value="Dra. Suyana Condori">{language === "es" ? "Dra. Suyana Condori" : "Hampiq Suyana Condori"}</option>
+                      <option value="Dr. Inti Huaman">{language === "es" ? "Dr. Inti Huaman" : "Hampiq Inti Huaman"}</option>
+                      <option value="Enf. Sayri Rimachi">{language === "es" ? "Enf. Sayri Rimachi" : "Hampi Kamayuq Sayri Rimachi"}</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Especialidad</label>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">{language === "es" ? "Especialidad" : "Especialidad"}</label>
                     <select
                       value={selectedSpecialty}
                       onChange={(e) => setSelectedSpecialty(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-sm font-medium text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer"
                     >
-                      <option>Medicina General</option>
-                      <option>Pediatría</option>
-                      <option>Obstetricia</option>
-                      <option>Medicina Tradicional</option>
-                      <option>Control de Presión</option>
+                      <option value="Medicina General">{language === "es" ? "Medicina General" : "Hampi Yachay"}</option>
+                      <option value="Pediatría">{language === "es" ? "Pediatría" : "Warma Hampi"}</option>
+                      <option value="Obstetricia">{language === "es" ? "Obstetricia" : "Obstetricia"}</option>
+                      <option value="Medicina Tradicional">{language === "es" ? "Medicina Tradicional" : "Ayllu Hampi"}</option>
+                      <option value="Control de Presión">{language === "es" ? "Control de Presión" : "Ñit'iy Tupuy"}</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Fecha y Día de Trabajo</label>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">{language === "es" ? "Fecha y Día de Trabajo" : "Llamk'ana P'unchay"}</label>
                     <div className="relative">
                       <input
                         type="date"
@@ -568,14 +568,14 @@ export default function AdministratorPanel({ language, recentActivities, onSetLa
                       />
                     </div>
                     <p className="text-xs text-slate-500 mt-1.5 font-medium">
-                      Día de la semana: <span className="font-bold text-blue-600">
+                      {language === "es" ? "Día de la semana:" : "P'unchay:"} <span className="font-bold text-blue-600">
                         {daysMap[new Date(selectedDate + 'T00:00:00').getDay()]}
                       </span>
                     </p>
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Bloques de Horarios</label>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">{language === "es" ? "Bloques de Horarios" : "Horario Churanakuna"}</label>
                     <div className="grid grid-cols-2 gap-2 mt-2">
                       {availableTimeSlots.map((slot) => {
                         const isSelected = selectedSlots.includes(slot);
@@ -603,7 +603,7 @@ export default function AdministratorPanel({ language, recentActivities, onSetLa
                     className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 disabled:opacity-50 text-white font-bold py-3.5 rounded-xl mt-3 transition-all shadow-md shadow-cyan-500/10 hover:shadow-cyan-500/25 flex items-center justify-center gap-2 hover:-translate-y-0.5 cursor-pointer"
                   >
                     <CalendarPlus className="w-4 h-4" />
-                    {isSubmittingShift ? "Registrando..." : "Registrar Turnos"}
+                    {isSubmittingShift ? (language === "es" ? "Registrando..." : "Qillqachkan...") : (language === "es" ? "Registrar Turnos" : "Horario Qillqay")}
                   </button>
                 </form>
               </div>
@@ -612,7 +612,7 @@ export default function AdministratorPanel({ language, recentActivities, onSetLa
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                   <h3 className="text-lg font-bold font-headline text-slate-800 flex items-center gap-2">
                     <ClipboardList className="text-slate-500" />
-                    Listado de Horarios en Activo
+                    {language === "es" ? "Listado de Horarios en Activo" : "Llamk'achkanku Horariokuna"}
                   </h3>
                   
                   {/* Filters */}
@@ -621,7 +621,7 @@ export default function AdministratorPanel({ language, recentActivities, onSetLa
                       <Search className="w-3.5 h-3.5 text-slate-400" />
                       <input
                         type="text"
-                        placeholder="Buscar médico..."
+                        placeholder={language === "es" ? "Buscar médico..." : "Hampiq maskhay..."}
                         value={doctorFilter}
                         onChange={(e) => setDoctorFilter(e.target.value)}
                         className="bg-transparent border-none text-xs font-semibold text-slate-700 focus:outline-none placeholder-slate-400 w-full"
@@ -635,12 +635,12 @@ export default function AdministratorPanel({ language, recentActivities, onSetLa
                         onChange={(e) => setSpecialtyFilter(e.target.value)}
                         className="bg-transparent border-none text-xs font-bold text-slate-650 focus:outline-none cursor-pointer"
                       >
-                        <option value="">Todas las Especialidades</option>
-                        <option>Medicina General</option>
-                        <option>Pediatría</option>
-                        <option>Obstetricia</option>
-                        <option>Medicina Tradicional</option>
-                        <option>Control de Presión</option>
+                        <option value="">{language === "es" ? "Todas las Especialidades" : "Tinkuy especialidadkuna"}</option>
+                        <option value="Medicina General">{language === "es" ? "Medicina General" : "Hampi Yachay"}</option>
+                        <option value="Pediatría">{language === "es" ? "Pediatría" : "Warma Hampi"}</option>
+                        <option value="Obstetricia">{language === "es" ? "Obstetricia" : "Obstetricia"}</option>
+                        <option value="Medicina Tradicional">{language === "es" ? "Medicina Tradicional" : "Ayllu Hampi"}</option>
+                        <option value="Control de Presión">{language === "es" ? "Control de Presión" : "Ñit'iy Tupuy"}</option>
                       </select>
                     </div>
                   </div>
@@ -1002,8 +1002,8 @@ export default function AdministratorPanel({ language, recentActivities, onSetLa
                           <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
                             <div className="xl:col-span-2 bg-white border border-slate-100 rounded-3xl shadow-md p-6">
                               <div className="flex items-center justify-between mb-5">
-                                <h4 className="text-sm font-black uppercase tracking-wider text-slate-800">Plan de seguimiento crónico</h4>
-                                <span className="text-[10px] font-black uppercase text-slate-400">{completed.filter(Boolean).length}/{actions.length || 0} completadas</span>
+                                <h4 className="text-sm font-black uppercase tracking-wider text-slate-800">{language === "es" ? "Plan de seguimiento crónico" : "Unqusqa Qhaway Ñan"}</h4>
+                                <span className="text-[10px] font-black uppercase text-slate-400">{completed.filter(Boolean).length}/{actions.length || 0} {language === "es" ? "completadas" : "tukusqa"}</span>
                               </div>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 {(actions.length ? actions : [risk.nextStep]).map((action: string, idx: number) => {
@@ -1033,7 +1033,7 @@ export default function AdministratorPanel({ language, recentActivities, onSetLa
                             </div>
 
                             <div className="bg-white border border-slate-100 rounded-3xl shadow-md p-6">
-                              <h4 className="text-sm font-black uppercase tracking-wider text-slate-800 mb-5">Prevalencia crónica</h4>
+                              <h4 className="text-sm font-black uppercase tracking-wider text-slate-800 mb-5">{language === "es" ? "Prevalencia crónica" : "Unquykuna Ripuy"}</h4>
                               <div className="flex flex-col gap-4">
                                 {chronicConditions.slice(0, 7).map((condition: string, idx: number) => {
                                   const match = condition.match(/^(.*?)\s*\((.*?)\):\s*(\d+)/);
@@ -1051,14 +1051,14 @@ export default function AdministratorPanel({ language, recentActivities, onSetLa
                                       <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
                                         <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct}%` }} />
                                       </div>
-                                      <span className="text-[10px] font-bold text-slate-400">{count} pacientes</span>
+                                      <span className="text-[10px] font-bold text-slate-400">{count} {language === "es" ? "pacientes" : "unqusqakuna"}</span>
                                     </div>
                                   );
                                 })}
                               </div>
                               {allergies.length > 0 && (
                                 <div className="border-t border-slate-100 mt-5 pt-4">
-                                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Alergias relevantes</span>
+                                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">{language === "es" ? "Alergias relevantes" : "Alergiakuna"}</span>
                                   <div className="flex flex-wrap gap-2 mt-2">
                                     {allergies.slice(0, 4).map((allergy: string, idx: number) => (
                                       <span key={idx} className="text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-100 px-2 py-1 rounded-lg">
@@ -1073,22 +1073,22 @@ export default function AdministratorPanel({ language, recentActivities, onSetLa
 
                           <div className="bg-white border border-slate-100 rounded-3xl shadow-md p-6">
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
-                              <h4 className="text-sm font-black uppercase tracking-wider text-slate-800">Lectura clínica longitudinal</h4>
+                              <h4 className="text-sm font-black uppercase tracking-wider text-slate-800">{language === "es" ? "Lectura clínica longitudinal" : "Qhali Kawsay Ñawinchay"}</h4>
                               <button
                                 type="button"
                                 onClick={() => setIsAnalysisExpanded(!isAnalysisExpanded)}
                                 className="text-xs font-bold text-blue-600 hover:text-blue-500 flex items-center gap-1 cursor-pointer self-start"
                               >
-                                {isAnalysisExpanded ? "Compactar" : "Ver informe completo"}
+                                {isAnalysisExpanded ? (language === "es" ? "Compactar" : "K'uyuy") : (language === "es" ? "Ver informe completo" : "Lliw willakuy qhaway")}
                                 {isAnalysisExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                               </button>
                             </div>
                             <p className={`text-sm text-slate-650 font-medium leading-relaxed ${isAnalysisExpanded ? "" : "line-clamp-3"}`}>
-                              {selectedReport.content?.analisisComunitario || "Sin análisis narrativo disponible para este corte del observatorio."}
+                              {selectedReport.content?.analisisComunitario || (language === "es" ? "Sin análisis narrativo disponible para este corte del observatorio." : "Manan kallpachu kay observatoriomanta qhali kawsay willakuynin.") }
                             </p>
                             {selectedReport.content?.resumenQuechua && (
                               <div className="mt-4 bg-amber-50 border border-amber-100 rounded-2xl p-4">
-                                <span className="text-[10px] font-black uppercase tracking-wider text-amber-700">Mensaje comunitario</span>
+                                <span className="text-[10px] font-black uppercase tracking-wider text-amber-700">{language === "es" ? "Mensaje comunitario" : "Ayllu Willakuy"}</span>
                                 <p className="text-xs font-bold text-amber-900 leading-relaxed mt-1 italic">"{selectedReport.content.resumenQuechua}"</p>
                               </div>
                             )}

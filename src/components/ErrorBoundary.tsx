@@ -2,6 +2,7 @@ import React, { Component, ErrorInfo, ReactNode } from "react";
 
 interface Props {
   children: ReactNode;
+  language?: "es" | "qu";
 }
 
 interface State {
@@ -28,6 +29,7 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   override render() {
+    const language = this.props.language || "es";
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-slate-900 flex items-center justify-center p-8">
@@ -37,9 +39,9 @@ export default class ErrorBoundary extends Component<Props, State> {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-slate-800 mb-2">Ocurrió un error inesperado</h2>
+            <h2 className="text-xl font-bold text-slate-800 mb-2">{language === "es" ? "Ocurrió un error inesperado" : "Mana suyasqa pantay rikurirqun"}</h2>
             <p className="text-sm text-slate-500 mb-4">
-              {this.state.error?.message || "Error desconocido"}
+              {this.state.error?.message || (language === "es" ? "Error desconocido" : "Mana riqsisqa pantay")}
             </p>
             <button
               onClick={() => {
@@ -49,7 +51,7 @@ export default class ErrorBoundary extends Component<Props, State> {
               }}
               className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg"
             >
-              Reiniciar Aplicación
+              {language === "es" ? "Reiniciar Aplicación" : "Aplicacionta Yapamanta Qallariy"}
             </button>
           </div>
         </div>
