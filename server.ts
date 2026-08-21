@@ -99,12 +99,17 @@ let dbError: string | null = null;
       console.log("🔌 Attempting database connection via DATABASE_URL...");
       pool = new pg.Pool({
         connectionString: process.env.DATABASE_URL,
-        ssl: { rejectUnauthorized: false }
+        ssl: { rejectUnauthorized: false },
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 10000
+      });
+      pool.on("error", (err) => {
+        console.warn("⚠️ Pool background client error (reconnecting as needed):", err.message);
       });
       // Connection test
       await Promise.race([
         pool.query("SELECT 1"),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("DB connection timeout (5s)")), 5000))
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("DB connection timeout (10s)")), 10000))
       ]);
     } else {
       throw new Error("DATABASE_URL is not set or contains default placeholders.");
@@ -119,14 +124,19 @@ let dbError: string | null = null;
         host: process.env.DB_SERVER || "localhost",
         database: process.env.DB_NAME || "postgres",
         port: Number(process.env.DB_PORT) || 5432,
-        ssl: (process.env.DB_SERVER && process.env.DB_SERVER !== "localhost") ? { rejectUnauthorized: false } : false
+        ssl: (process.env.DB_SERVER && process.env.DB_SERVER !== "localhost") ? { rejectUnauthorized: false } : false,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 10000
       };
       
       pool = new pg.Pool(fallbackConfig);
+      pool.on("error", (err) => {
+        console.warn("⚠️ Fallback pool background client error:", err.message);
+      });
       // Connection test on fallback
       await Promise.race([
         pool.query("SELECT 1"),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("DB connection timeout (5s)")), 5000))
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("DB connection timeout (10s)")), 10000))
       ]);
     } catch (fallbackErr: any) {
       dbError = fallbackErr.message;
@@ -137,6 +147,7 @@ let dbError: string | null = null;
   }
 
   dbPool = pool;
+  dbError = null;
   console.log("✅ PostgreSQL/Supabase connected successfully.");
 
     // Create Tables if not exist (Auto-Migration)
