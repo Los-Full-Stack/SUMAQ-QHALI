@@ -3,20 +3,34 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const config = {
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  host: process.env.DB_SERVER,
-  database: process.env.DB_NAME,
-  port: Number(process.env.DB_PORT) || 5432,
-  ssl: { rejectUnauthorized: false }
-};
+const hasValidUrl = process.env.DATABASE_URL && 
+                     !process.env.DATABASE_URL.includes("[TU_CONTRASEÑA]") && 
+                     !process.env.DATABASE_URL.includes("YOUR_SUPABASE") && 
+                     !process.env.DATABASE_URL.includes("[PASSWORD]") && 
+                     process.env.DATABASE_URL.startsWith("postgresql://");
 
-const pool = new pg.Pool(config);
+const pool = hasValidUrl
+  ? new pg.Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false }
+    })
+  : new pg.Pool({
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      host: process.env.DB_SERVER,
+      database: process.env.DB_NAME,
+      port: Number(process.env.DB_PORT) || 5432,
+      ssl: { rejectUnauthorized: false }
+    });
 
 (async () => {
   try {
-    console.log("1. Checking connection...");
+    console.log("1. Checking connection to PostgreSQL/Supabase...");
+    if (hasValidUrl) {
+      console.log("Using DATABASE_URL:", process.env.DATABASE_URL?.replace(/:([^@:]+)@/, ":****@"));
+    } else {
+      console.log("Using desegregated config for host:", process.env.DB_SERVER);
+    }
     await pool.query("SELECT 1");
     console.log("Connection OK.");
 
